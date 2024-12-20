@@ -14,6 +14,7 @@ import Subject from "./Subject";
 import Module from "./Module";
 import Application from "./Application";
 import Website from "./Website";
+import User from "./Users";
 
 function ProtectedLayout({ onLogout }) {
   const [isSidebarHidden, setIsSidebarHidden] = useState(false);
@@ -60,6 +61,7 @@ function ProtectedLayout({ onLogout }) {
           <Route path="/module" element={<Module />} />
           <Route path="/application" element={<Application />} />
           <Route path="/website" element={<Website />} />
+          <Route path="/users" element={<User />} />
         </Routes>
       </div>
     </div>

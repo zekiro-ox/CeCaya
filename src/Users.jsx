@@ -1,94 +1,114 @@
 import React, { useState } from "react";
 import { FaEdit, FaTrashAlt, FaEye } from "react-icons/fa";
 
-const Application = () => {
-  const [applications, setApplications] = useState([
+const User = () => {
+  const [users, setUsers] = useState([
     {
       id: 1,
-      logo: "path_to_logo/logo1.png",
-      applicationName: "App One",
+      firstName: "John",
+      lastName: "Doe",
+      email: "john.doe@example.com",
       status: "Approved",
       institute: "Institute A",
       course: "Course X",
+      userType: "Admin",
     },
     {
       id: 2,
-      logo: "path_to_logo/logo2.png",
-      applicationName: "App Two",
+      firstName: "Jane",
+      lastName: "Smith",
+      email: "jane.smith@example.com",
       status: "Not Approved",
       institute: "Institute B",
       course: "Course Y",
+      userType: "Professor",
     },
-    // Add more applications here
+    // Add more users here
   ]);
 
   const [editingRecord, setEditingRecord] = useState(null);
   const [formData, setFormData] = useState({
     id: "",
-    logo: null,
-    applicationName: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
     status: "",
     institute: "",
     course: "",
+    userType: "",
   });
 
-  const [viewApplication, setViewApplication] = useState(null);
+  const [viewUser, setViewUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage, setRecordsPerPage] = useState(5);
-  const totalRecords = applications.length;
+  const totalRecords = users.length;
 
   // Predefined institutes and courses
   const institutes = ["Institute A", "Institute B", "Institute C"];
   const courses = ["Course X", "Course Y", "Course Z"];
+  const userTypes = ["Admin", "Professor"];
+  const statusOptions = ["Approved", "Not Approved"];
 
-  const handleAddApplication = (e) => {
+  const handleAddUser = (e) => {
     e.preventDefault();
 
-    const updatedApplication = {
+    const updatedUser = {
       ...formData,
-      id: applications.length + 1,
+      id: users.length + 1,
     };
 
-    setApplications([...applications, updatedApplication]);
+    setUsers([...users, updatedUser]);
     setFormData({
       id: "",
-      logo: null,
-      applicationName: "",
+      firstName: "",
+      lastName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
       status: "",
       institute: "",
       course: "",
+      userType: "",
     });
   };
 
-  const handleEditRecord = (application) => {
-    setEditingRecord(application.id);
+  const handleEditRecord = (user) => {
+    setEditingRecord(user.id);
     setFormData({
-      id: application.id,
-      logo: application.logo,
-      applicationName: application.applicationName,
-      status: application.status,
-      institute: application.institute,
-      course: application.course,
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      status: user.status,
+      institute: user.institute,
+      course: user.course,
+      userType: user.userType,
     });
   };
 
   const handleSaveChanges = (e) => {
     e.preventDefault();
-    const updatedApplications = applications.map((application) =>
-      application.id === formData.id ? { ...formData } : application
+    const updatedUsers = users.map((user) =>
+      user.id === formData.id ? { ...formData, password: user.password } : user
     );
-    setApplications(updatedApplications);
+    setUsers(updatedUsers);
     setEditingRecord(null);
     setFormData({
       id: "",
-      logo: null,
-      applicationName: "",
+      firstName: "",
+      lastName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
       status: "",
       institute: "",
       course: "",
+      userType: "",
     });
   };
 
@@ -97,18 +117,13 @@ const Application = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    setFormData({ ...formData, logo: URL.createObjectURL(file) });
+  const handleRemoveUser = (index) => {
+    const updatedUsers = users.filter((_, i) => i !== index);
+    setUsers(updatedUsers);
   };
 
-  const handleRemoveApplication = (index) => {
-    const updatedApplications = applications.filter((_, i) => i !== index);
-    setApplications(updatedApplications);
-  };
-
-  const handleViewApplication = (application) => {
-    setViewApplication(application);
+  const handleViewUser = (user) => {
+    setViewUser(user);
     setShowModal(true);
   };
 
@@ -130,7 +145,7 @@ const Application = () => {
     setCurrentPage(1); // Reset to the first page when changing records per page
   };
 
-  const currentApplications = applications.slice(
+  const currentUsers = users.slice(
     (currentPage - 1) * recordsPerPage,
     currentPage * recordsPerPage
   );
@@ -140,8 +155,8 @@ const Application = () => {
       {/* Table Section */}
       <section className="flex-1 bg-white rounded-lg shadow-md p-2 sm:p-4 overflow-x-auto">
         <header className="flex justify-between items-center mb-6">
-          <h1 className="text-xl lg:text-2xl font-bold text-gray-800">
-            Application Management
+          <h1 className="text-xl lg:text-2xl font-semibold text-gray-800">
+            User Management
           </h1>
         </header>
         <table className="w-full border-collapse border border-gray-200">
@@ -151,10 +166,10 @@ const Application = () => {
                 ID
               </th>
               <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
-                Application Logo
+                Name
               </th>
               <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
-                Application Name
+                Email
               </th>
               <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
                 Status
@@ -165,39 +180,33 @@ const Application = () => {
             </tr>
           </thead>
           <tbody>
-            {currentApplications.map((application, index) => (
+            {currentUsers.map((user, index) => (
               <tr key={index} className="hover:bg-gray-50">
+                <td className="border border-gray-200 px-4 py-2">{user.id}</td>
                 <td className="border border-gray-200 px-4 py-2">
-                  {application.id}
+                  {user.firstName} {user.lastName}
                 </td>
                 <td className="border border-gray-200 px-4 py-2">
-                  <img
-                    src={application.logo}
-                    alt="logo"
-                    className="h-8 w-8 object-cover"
-                  />
+                  {user.email}
                 </td>
                 <td className="border border-gray-200 px-4 py-2">
-                  {application.applicationName}
-                </td>
-                <td className="border border-gray-200 px-4 py-2">
-                  {application.status}
+                  {user.status}
                 </td>
                 <td className="border border-gray-200 px-4 py-2 flex space-x-2">
                   <button
                     className="text-white bg-lime-800 p-2 rounded hover:bg-lime-900 flex items-center"
-                    onClick={() => handleViewApplication(application)}
+                    onClick={() => handleViewUser(user)}
                   >
                     <FaEye />
                   </button>
                   <button
                     className="text-white bg-lime-800 p-2 rounded hover:bg-lime-900 flex items-center"
-                    onClick={() => handleEditRecord(application)}
+                    onClick={() => handleEditRecord(user)}
                   >
                     <FaEdit />
                   </button>
                   <button
-                    onClick={() => handleRemoveApplication(index)}
+                    onClick={() => handleRemoveUser(index)}
                     className="bg-red-800 text-white p-2 rounded hover:bg-red-900 flex items-center"
                   >
                     <FaTrashAlt />
@@ -252,10 +261,10 @@ const Application = () => {
       {/* Form Section */}
       <section className="lg:w-1/3 bg-white rounded-lg shadow-md p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">
-          {editingRecord ? "Edit Application" : "Add New Application"}
+          {editingRecord ? "Edit User" : "Add New User"}
         </h2>
         <form
-          onSubmit={editingRecord ? handleSaveChanges : handleAddApplication}
+          onSubmit={editingRecord ? handleSaveChanges : handleAddUser}
           className="space-y-4"
         >
           <div>
@@ -302,29 +311,97 @@ const Application = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Application Name
+              First Name
             </label>
             <input
               type="text"
-              name="applicationName"
-              value={formData.applicationName}
+              name="firstName"
+              value={formData.firstName}
               onChange={handleInputChange}
-              placeholder="Enter application name"
+              placeholder="Enter first name"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
               required
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Application Logo
+              Last Name
             </label>
             <input
-              type="file"
-              accept=".png,.jpg,.jpeg"
-              onChange={handleFileUpload}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-l ime-800 focus:ring-lime-800 sm:text-sm p-2"
+              type="text"
+              name="lastName"
+              value={formData.lastName}
+              onChange={handleInputChange}
+              placeholder="Enter last name"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
               required
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Email
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              placeholder="Enter email"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              required
+              disabled={editingRecord !== null} // Disable if editing
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Password
+            </label>
+            <input
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleInputChange}
+              placeholder="Enter password"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              required
+              disabled={editingRecord !== null} // Disable if editing
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Confirm Password
+            </label>
+            <input
+              type="password"
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleInputChange}
+              placeholder="Confirm password"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              required
+              disabled={editingRecord !== null} // Disable if editing
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              User Type
+            </label>
+            <select
+              name="userType"
+              value={formData.userType}
+              onChange={handleInputChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              required
+            >
+              <option value="" disabled>
+                Select User Type
+              </option>
+              {userTypes.map((type, index) => (
+                <option key={index} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
@@ -340,49 +417,49 @@ const Application = () => {
               <option value="" disabled>
                 Select Status
               </option>
-              <option value="Approved">Approved</option>
-              <option value="Not Approved">Not Approved</option>
+              {statusOptions.map((status, index) => (
+                <option key={index} value={status}>
+                  {status}
+                </option>
+              ))}
             </select>
           </div>
           <button
             type="submit"
             className="w-full bg-lime-800 text-white p-2 rounded hover:bg-lime-900"
           >
-            {editingRecord ? "Save Changes" : "Add Application"}
+            {editingRecord ? "Save Changes" : "Add User"}
           </button>
         </form>
       </section>
 
       {/* Modal Section */}
-      {showModal && viewApplication && (
+      {showModal && viewUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-3/4 sm:w-1/2">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              Application Details
+              User Details
             </h2>
             <p>
-              <strong>ID:</strong> {viewApplication.id}
+              <strong>ID:</strong> {viewUser.id}
             </p>
             <p>
-              <strong>Application Logo:</strong>{" "}
-              <img
-                src={viewApplication.logo}
-                alt="logo"
-                className="h-12 w-12 object-cover"
-              />
+              <strong>Name:</strong> {viewUser.firstName} {viewUser.lastName}
             </p>
             <p>
-              <strong>Application Name:</strong>{" "}
-              {viewApplication.applicationName}
+              <strong>Email:</strong> {viewUser.email}
             </p>
             <p>
-              <strong>Status:</strong> {viewApplication.status}
+              <strong>Status:</strong> {viewUser.status}
             </p>
             <p>
-              <strong>Institute:</strong> {viewApplication.institute}
+              <strong>Institute:</strong> {viewUser.institute}
             </p>
             <p>
-              <strong>Course:</strong> {viewApplication.course}
+              <strong>Course:</strong> {viewUser.course}
+            </p>
+            <p>
+              <strong>User Type:</strong> {viewUser.userType}
             </p>
             <button
               className="mt-4 bg-red-800 text-white px-4 py-2 rounded hover:bg-red-900"
@@ -397,4 +474,4 @@ const Application = () => {
   );
 };
 
-export default Application;
+export default User;

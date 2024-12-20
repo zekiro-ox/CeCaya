@@ -126,15 +126,15 @@ const Sidebar = ({ isHidden }) => {
             </div>
           </li>
           <li>
-            <a
-              href="#users"
+            <Link
+              to="/users"
               className={`flex items-center px-4 py-2 rounded hover:bg-lime-600 ${
-                isActive("/users") ? "bg-lime-800" : ""
+                isActive("/users") ? "bg-lime-700" : ""
               }`}
             >
               <FaUsers className="mr-3" />
               Users
-            </a>
+            </Link>
           </li>
         </ul>
       </nav>
