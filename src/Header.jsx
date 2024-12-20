@@ -4,6 +4,7 @@ import {
   FaChevronDown,
   FaChevronUp,
   FaBars,
+  FaSignOutAlt, // Importing logout icon
 } from "react-icons/fa";
 
 const Header = ({ onLogout, toggleSidebar }) => {
@@ -34,9 +35,11 @@ const Header = ({ onLogout, toggleSidebar }) => {
         {isDropdownOpen && (
           <div className="absolute right-0 mt-2 w-40 bg-white text-black rounded-md shadow-lg border border-black">
             <button
-              className="w-full text-left px-4 py-2 hover:bg-gray-200 rounded-md"
+              className="w-full text-left px-4 py-2 hover:bg-gray-200 rounded-md flex items-center"
               onClick={onLogout}
             >
+              <FaSignOutAlt className="mr-2" />{" "}
+              {/* Adding the logout icon here */}
               Logout
             </button>
           </div>
