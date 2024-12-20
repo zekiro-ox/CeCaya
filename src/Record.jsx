@@ -25,7 +25,7 @@ const Record = () => {
       <section className="flex-1 bg-white rounded-lg shadow-md p-2 sm:p-4 overflow-x-auto">
         <header className="flex justify-between items-center mb-6">
           <h1 className="text-xl lg:text-2xl font-semibold text-gray-800">
-            Record Management
+            Academic Management
           </h1>
         </header>
         <table className="w-full border-collapse border border-gray-200">

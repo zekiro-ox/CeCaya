@@ -10,6 +10,8 @@ import Dashboard from "./Dashboard";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 import Record from "./Record";
+import Subject from "./Subject";
+import Module from "./Module";
 
 function ProtectedLayout({ onLogout }) {
   const [isSidebarHidden, setIsSidebarHidden] = useState(false);
@@ -52,6 +54,8 @@ function ProtectedLayout({ onLogout }) {
         <Routes>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/record" element={<Record />} />
+          <Route path="/subject" element={<Subject />} />
+          <Route path="/module" element={<Module />} />
         </Routes>
       </div>
     </div>

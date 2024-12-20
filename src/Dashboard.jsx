@@ -10,9 +10,6 @@ const Dashboard = () => {
         <h1 className="text-xl lg:text-2xl font-semibold text-gray-800">
           Welcome Back!
         </h1>
-        <button className="bg-lime-800 text-white px-4 py-2 rounded hover:bg-lime-900 mt-2 lg:mt-0">
-          Add New
-        </button>
       </header>
 
       {/* Content Section */}
