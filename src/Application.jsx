@@ -1,101 +1,94 @@
 import React, { useState } from "react";
 import { FaEdit, FaTrashAlt, FaEye } from "react-icons/fa";
 
-const Module = () => {
-  const [modules, setModules] = useState([
+const Application = () => {
+  const [applications, setApplications] = useState([
     {
       id: 1,
-      subjectCode: "MTH101",
-      moduleName: "Calculus Basics",
-      moduleFile: {
-        name: "calculus_basics.pdf",
-        url: "path_to_file/calculus_basics.pdf",
-      },
-      uploader: "John Doe",
-      dateUploaded: "2024-12-20",
+      logo: "path_to_logo/logo1.png",
+      applicationName: "App One",
+      status: "Approved",
+      institute: "Institute A",
+      course: "Course X",
     },
     {
       id: 2,
-      subjectCode: "PHY101",
-      moduleName: "Quantum Physics Intro",
-      moduleFile: {
-        name: "quantum_physics.ppt",
-        url: "path_to_file/quantum_physics.ppt",
-      },
-      uploader: "Jane Smith",
-      dateUploaded: "2024-12-18",
+      logo: "path_to_logo/logo2.png",
+      applicationName: "App Two",
+      status: "Not Approved",
+      institute: "Institute B",
+      course: "Course Y",
     },
-    // Add more modules here
+    // Add more applications here
   ]);
 
   const [editingRecord, setEditingRecord] = useState(null);
   const [formData, setFormData] = useState({
     id: "",
-    subjectCode: "",
-    moduleName: "",
-    moduleFile: null,
-    uploader: "",
-    dateUploaded: "",
+    logo: null,
+    applicationName: "",
+    status: "",
+    institute: "",
+    course: "",
   });
 
-  const [viewModule, setViewModule] = useState(null);
+  const [viewApplication, setViewApplication] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage, setRecordsPerPage] = useState(5);
-  const totalRecords = modules.length;
+  const totalRecords = applications.length;
 
-  // Predefined subject codes and users
-  const subjectCodes = ["MTH101", "PHY101", "CSE201"];
-  const users = ["John Doe", "Jane Smith", "Alice Johnson", "Bob Lee"];
+  // Predefined institutes and courses
+  const institutes = ["Institute A", "Institute B", "Institute C"];
+  const courses = ["Course X", "Course Y", "Course Z"];
 
-  const handleAddModule = (e) => {
+  const handleAddApplication = (e) => {
     e.preventDefault();
 
-    const updatedModule = {
+    const updatedApplication = {
       ...formData,
-      id: modules.length + 1,
-      dateUploaded: new Date().toISOString().split("T")[0],
+      id: applications.length + 1,
     };
 
-    setModules([...modules, updatedModule]);
+    setApplications([...applications, updatedApplication]);
     setFormData({
       id: "",
-      subjectCode: "",
-      moduleName: "",
-      moduleFile: null,
-      uploader: "",
-      dateUploaded: "",
+      logo: null,
+      applicationName: "",
+      status: "",
+      institute: "",
+      course: "",
     });
   };
 
-  const handleEditRecord = (module) => {
-    setEditingRecord(module.id);
+  const handleEditRecord = (application) => {
+    setEditingRecord(application.id);
     setFormData({
-      id: module.id,
-      subjectCode: module.subjectCode,
-      moduleName: module.moduleName,
-      moduleFile: module.moduleFile,
-      uploader: module.uploader,
-      dateUploaded: module.dateUploaded,
+      id: application.id,
+      logo: application.logo,
+      applicationName: application.applicationName,
+      status: application.status,
+      institute: application.institute,
+      course: application.course,
     });
   };
 
   const handleSaveChanges = (e) => {
     e.preventDefault();
-    const updatedModules = modules.map((module) =>
-      module.id === formData.id ? { ...formData } : module
+    const updatedApplications = applications.map((application) =>
+      application.id === formData.id ? { ...formData } : application
     );
-    setModules(updatedModules);
+    setApplications(updatedApplications);
     setEditingRecord(null);
     setFormData({
       id: "",
-      subjectCode: "",
-      moduleName: "",
-      moduleFile: null,
-      uploader: "",
-      dateUploaded: "",
+      logo: null,
+      applicationName: "",
+      status: "",
+      institute: "",
+      course: "",
     });
   };
 
@@ -106,25 +99,22 @@ const Module = () => {
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
-    setFormData({
-      ...formData,
-      moduleFile: { name: file.name, url: URL.createObjectURL(file) },
-    });
+    setFormData({ ...formData, logo: URL.createObjectURL(file) });
   };
 
-  const handleRemoveModule = (index) => {
-    const updatedModules = modules.filter((_, i) => i !== index);
-    setModules(updatedModules);
+  const handleRemoveApplication = (index) => {
+    const updatedApplications = applications.filter((_, i) => i !== index);
+    setApplications(updatedApplications);
   };
 
-  const handleViewModule = (module) => {
-    setViewModule(module);
+  const handleViewApplication = (application) => {
+    setViewApplication(application);
     setShowModal(true);
   };
 
   // Pagination Logic
   const handleNextPage = () => {
-    if (currentPage < totalRecords / recordsPerPage) {
+    if (currentPage < Math.ceil(totalRecords / recordsPerPage)) {
       setCurrentPage(currentPage + 1);
     }
   };
@@ -140,7 +130,7 @@ const Module = () => {
     setCurrentPage(1); // Reset to the first page when changing records per page
   };
 
-  const currentModules = modules.slice(
+  const currentApplications = applications.slice(
     (currentPage - 1) * recordsPerPage,
     currentPage * recordsPerPage
   );
@@ -150,8 +140,8 @@ const Module = () => {
       {/* Table Section */}
       <section className="flex-1 bg-white rounded-lg shadow-md p-2 sm:p-4 overflow-x-auto">
         <header className="flex justify-between items-center mb-6">
-          <h1 className="text-xl lg:text-2xl font-bold text-gray-800">
-            Module Management
+          <h1 className="text-xl lg:text-2xl font-semibold text-gray-800">
+            Application Management
           </h1>
         </header>
         <table className="w-full border-collapse border border-gray-200">
@@ -161,13 +151,13 @@ const Module = () => {
                 ID
               </th>
               <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
-                Subject Code
+                Application Logo
               </th>
               <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
-                Module Name
+                Application Name
               </th>
               <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
-                Module File
+                Status
               </th>
               <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
                 Action
@@ -175,41 +165,39 @@ const Module = () => {
             </tr>
           </thead>
           <tbody>
-            {currentModules.map((module, index) => (
+            {currentApplications.map((application, index) => (
               <tr key={index} className="hover:bg-gray-50">
                 <td className="border border-gray-200 px-4 py-2">
-                  {module.id}
+                  {application.id}
                 </td>
                 <td className="border border-gray-200 px-4 py-2">
-                  {module.subjectCode}
+                  <img
+                    src={application.logo}
+                    alt="logo"
+                    className="h-8 w-8 object-cover"
+                  />
                 </td>
                 <td className="border border-gray-200 px-4 py-2">
-                  {module.moduleName}
+                  {application.applicationName}
                 </td>
                 <td className="border border-gray-200 px-4 py-2">
-                  <a
-                    href={module.moduleFile?.url}
-                    download={module.moduleFile?.name}
-                    className="text-blue-600 hover:text-blue-800"
-                  >
-                    {module.moduleFile?.name || "No file uploaded"}
-                  </a>
+                  {application.status}
                 </td>
                 <td className="border border-gray-200 px-4 py-2 flex space-x-2">
                   <button
                     className="text-white bg-lime-800 p-2 rounded hover:bg-lime-900 flex items-center"
-                    onClick={() => handleViewModule(module)}
+                    onClick={() => handleViewApplication(application)}
                   >
                     <FaEye />
                   </button>
                   <button
                     className="text-white bg-lime-800 p-2 rounded hover:bg-lime-900 flex items-center"
-                    onClick={() => handleEditRecord(module)}
+                    onClick={() => handleEditRecord(application)}
                   >
                     <FaEdit />
                   </button>
                   <button
-                    onClick={() => handleRemoveModule(index)}
+                    onClick={() => handleRemoveApplication(index)}
                     className="bg-red-800 text-white p-2 rounded hover:bg-red-900 flex items-center"
                   >
                     <FaTrashAlt />
@@ -264,120 +252,137 @@ const Module = () => {
       {/* Form Section */}
       <section className="lg:w-1/3 bg-white rounded-lg shadow-md p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">
-          {editingRecord ? "Edit Module" : "Add New Module"}
+          {editingRecord ? "Edit Application" : "Add New Application"}
         </h2>
         <form
-          onSubmit={editingRecord ? handleSaveChanges : handleAddModule}
+          onSubmit={editingRecord ? handleSaveChanges : handleAddApplication}
           className="space-y-4"
         >
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Subject Code
+              Institute
             </label>
             <select
-              name="subjectCode"
-              value={formData.subjectCode}
+              name="institute"
+              value={formData.institute}
               onChange={handleInputChange}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
               required
             >
               <option value="" disabled>
-                Select a subject code
+                Select Institute
               </option>
-              {subjectCodes.map((code, index) => (
-                <option key={index} value={code}>
-                  {code}
+              {institutes.map((institute, index) => (
+                <option key={index} value={institute}>
+                  {institute}
                 </option>
               ))}
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Module Name
-            </label>
-            <input
-              type="text"
-              name="moduleName"
-              value={formData.moduleName}
-              onChange={handleInputChange}
-              placeholder="Enter module name"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Module File
-            </label>
-            <input
-              type="file"
-              accept=".doc,.docx,.ppt,.pptx,.pdf"
-              onChange={handleFileUpload}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Module Uploader
+              Course
             </label>
             <select
-              name="uploader"
-              value={formData.uploader}
+              name="course"
+              value={formData.course}
               onChange={handleInputChange}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
               required
             >
               <option value="" disabled>
-                Select uploader
+                Select Course
               </option>
-              {users.map((user, index) => (
-                <option key={index} value={user}>
-                  {user}
+              {courses.map((course, index) => (
+                <option key={index} value={course}>
+                  {course}
                 </option>
               ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Application Name
+            </label>
+            <input
+              type="text"
+              name="applicationName"
+              value={formData.applicationName}
+              onChange={handleInputChange}
+              placeholder="Enter application name"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Application Logo
+            </label>
+            <input
+              type="file"
+              accept=".png,.jpg,.jpeg"
+              onChange={handleFileUpload}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-l ime-800 focus:ring-lime-800 sm:text-sm p-2"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Status
+            </label>
+            <select
+              name="status"
+              value={formData.status}
+              onChange={handleInputChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              required
+            >
+              <option value="" disabled>
+                Select Status
+              </option>
+              <option value="Approved">Approved</option>
+              <option value="Not Approved">Not Approved</option>
             </select>
           </div>
           <button
             type="submit"
             className="w-full bg-lime-800 text-white p-2 rounded hover:bg-lime-900"
           >
-            {editingRecord ? "Save Changes" : "Add Module"}
+            {editingRecord ? "Save Changes" : "Add Application"}
           </button>
         </form>
       </section>
 
       {/* Modal Section */}
-      {showModal && viewModule && (
+      {showModal && viewApplication && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-3/4 sm:w-1/2">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              Module Details
+              Application Details
             </h2>
             <p>
-              <strong>ID:</strong> {viewModule.id}
+              <strong>ID:</strong> {viewApplication.id}
             </p>
             <p>
-              <strong>Subject Code:</strong> {viewModule.subjectCode}
+              <strong>Application Logo:</strong>{" "}
+              <img
+                src={viewApplication.logo}
+                alt="logo"
+                className="h-12 w-12 object-cover"
+              />
             </p>
             <p>
-              <strong>Module Name:</strong> {viewModule.moduleName}
+              <strong>Application Name:</strong>{" "}
+              {viewApplication.applicationName}
             </p>
             <p>
-              <strong>Module File:</strong>{" "}
-              <a
-                href={viewModule.moduleFile.url}
-                download={viewModule.moduleFile.name}
-                className="text-blue-600 hover:text-blue-800"
-              >
-                {viewModule.moduleFile.name}
-              </a>
+              <strong>Status:</strong> {viewApplication.status}
             </p>
             <p>
-              <strong>Uploader:</strong> {viewModule.uploader}
+              <strong>Institute:</strong> {viewApplication.institute}
             </p>
             <p>
-              <strong>Date Uploaded:</strong> {viewModule.dateUploaded}
+              <strong>Course:</strong> {viewApplication.course}
             </p>
             <button
               className="mt-4 bg-red-800 text-white px-4 py-2 rounded hover:bg-red-900"
@@ -392,4 +397,4 @@ const Module = () => {
   );
 };
 
-export default Module;
+export default Application;

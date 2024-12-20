@@ -1,5 +1,10 @@
 import React, { useState } from "react";
-import { FaUsers, FaChevronDown, FaChevronUp } from "react-icons/fa";
+import {
+  FaUsers,
+  FaChevronDown,
+  FaChevronUp,
+  FaUserShield,
+} from "react-icons/fa";
 import { RiDashboardHorizontalFill } from "react-icons/ri";
 import { GrResources } from "react-icons/gr";
 import { VscFileSubmodule } from "react-icons/vsc";
@@ -27,7 +32,10 @@ const Sidebar = ({ isHidden }) => {
       style={{ backgroundColor: "#4f6932" }}
     >
       <div className="p-6 text-center border-b border-lime-900">
-        <img src={Logo} alt="CceCaya Logo" className="mx-auto mb-2 w-16 h-16" />
+        <div className="flex justify-center items-center space-x-2">
+          <FaUserShield className="text-4xl" /> {/* Admin icon */}
+          <span className="text-3xl font-bold">Admin</span>
+        </div>
       </div>
       <nav className="flex-1 p-4">
         <ul className="space-y-4">
@@ -92,22 +100,26 @@ const Sidebar = ({ isHidden }) => {
                     </Link>
                   </li>
                   <li>
-                    <a
-                      href="#application"
-                      className="flex items-center px-4 py-2 rounded hover:bg-lime-600"
+                    <Link
+                      to="/application"
+                      className={`flex items-center px-4 py-2 rounded hover:bg-lime-600 ${
+                        isActive("/application") ? "bg-lime-700" : ""
+                      }`}
                     >
                       <MdOutlineSettingsApplications className="mr-3" />
                       Application
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a
-                      href="#website-link"
-                      className="flex items-center px-4 py-2 rounded hover:bg-lime-600"
+                    <Link
+                      to="/website"
+                      className={`flex items-center px-4 py-2 rounded hover:bg-lime-600 ${
+                        isActive("/website") ? "bg-lime-700" : ""
+                      }`}
                     >
                       <MdOutlineLink className="mr-3" />
-                      Website Link
-                    </a>
+                      Website
+                    </Link>
                   </li>
                 </ul>
               )}
