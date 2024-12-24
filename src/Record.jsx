@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { FaEdit, FaTrashAlt, FaEye } from "react-icons/fa";
 
 const Record = () => {
-  const [courses, setCourses] = useState([""]);
   const [viewRecord, setViewRecord] = useState(null); // To store the record being viewed
   const [showModal, setShowModal] = useState(false); // To control modal visibility
   const [editingRecord, setEditingRecord] = useState(null); // To store the record being edited
@@ -21,18 +20,27 @@ const Record = () => {
   }));
 
   const handleAddCourse = () => {
-    setCourses([...courses, ""]);
+    setFormData((prevData) => ({
+      ...prevData,
+      courses: [...prevData.courses, ""],
+    }));
   };
 
   const handleCourseChange = (index, value) => {
-    const updatedCourses = [...courses];
+    const updatedCourses = [...formData.courses];
     updatedCourses[index] = value;
-    setCourses(updatedCourses);
+    setFormData((prevData) => ({
+      ...prevData,
+      courses: updatedCourses,
+    }));
   };
 
   const handleRemoveCourse = (index) => {
-    const updatedCourses = courses.filter((_, i) => i !== index);
-    setCourses(updatedCourses);
+    const updatedCourses = formData.courses.filter((_, i) => i !== index);
+    setFormData((prevData) => ({
+      ...prevData,
+      courses: updatedCourses,
+    }));
   };
 
   const handleViewRecord = (record) => {
@@ -56,7 +64,6 @@ const Record = () => {
     );
     setEditingRecord(null); // Clear editing state
     setFormData({ name: "", logo: "", courses: [""] }); // Reset form
-    setCourses([""]); // Reset courses state
     alert("Record updated successfully!");
   };
 
@@ -66,6 +73,16 @@ const Record = () => {
       ...prevData,
       [name]: value,
     }));
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFormData((prevData) => ({
+        ...prevData,
+        logo: URL.createObjectURL(file),
+      }));
+    }
   };
 
   return (
@@ -145,7 +162,7 @@ const Record = () => {
               <strong>ID:</strong> {viewRecord.id}
             </p>
             <p>
-              <strong>Name:</strong> {viewRecord.name}
+              <strong>Institute Name:</strong> {viewRecord.name}
             </p>
             <p>
               <strong>Courses:</strong> {viewRecord.courses.join(", ")}
@@ -190,7 +207,7 @@ const Record = () => {
             <input
               type="file"
               accept="image/png, image/jpeg, image/jpg"
-              onChange={(e) => handleChange(e)}
+              onChange={handleFileChange}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
             />
           </div>

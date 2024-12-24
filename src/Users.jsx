@@ -7,6 +7,7 @@ const User = () => {
       id: 1,
       firstName: "John",
       lastName: "Doe",
+      username: "johndoe",
       email: "john.doe@example.com",
       status: "Approved",
       institute: "Institute A",
@@ -17,6 +18,7 @@ const User = () => {
       id: 2,
       firstName: "Jane",
       lastName: "Smith",
+      username: "janesmith",
       email: "jane.smith@example.com",
       status: "Not Approved",
       institute: "Institute B",
@@ -31,6 +33,7 @@ const User = () => {
     id: "",
     firstName: "",
     lastName: "",
+    username: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -67,6 +70,7 @@ const User = () => {
       id: "",
       firstName: "",
       lastName: "",
+      username: "",
       email: "",
       password: "",
       confirmPassword: "",
@@ -83,6 +87,7 @@ const User = () => {
       id: user.id,
       firstName: user.firstName,
       lastName: user.lastName,
+      username: user.username,
       email: user.email,
       status: user.status,
       institute: user.institute,
@@ -102,6 +107,7 @@ const User = () => {
       id: "",
       firstName: "",
       lastName: "",
+      username: "",
       email: "",
       password: "",
       confirmPassword: "",
@@ -155,7 +161,7 @@ const User = () => {
       {/* Table Section */}
       <section className="flex-1 bg-white rounded-lg shadow-md p-2 sm:p-4 overflow-x-auto">
         <header className="flex justify-between items-center mb-6">
-          <h1 className="text-xl lg:text-2xl font-semibold text-gray-800">
+          <h1 className="text-xl lg:text-2xl font-bold text-gray-800">
             User Management
           </h1>
         </header>
@@ -339,6 +345,20 @@ const User = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
+              Username
+            </label>
+            <input
+              type="text"
+              name="username"
+              value={formData.username}
+              onChange={handleInputChange}
+              placeholder="Enter username"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
               Email
             </label>
             <input
@@ -445,6 +465,9 @@ const User = () => {
             </p>
             <p>
               <strong>Name:</strong> {viewUser.firstName} {viewUser.lastName}
+            </p>
+            <p>
+              <strong>Username:</strong> {viewUser.username}
             </p>
             <p>
               <strong>Email:</strong> {viewUser.email}
