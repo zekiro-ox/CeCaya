@@ -1,5 +1,15 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { auth, db } from "./config/firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import {
+  doc,
+  getDoc,
+  collection,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
 import Logo from "./assets/CCECAYALOGO.png";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -8,23 +18,54 @@ const LoginPage = ({ onLogin }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const navigate = useNavigate(); // Hook for navigation
+  const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
 
-    if (username === "test" && password === "password") {
-      toast.success("Login successful!", {
-        position: "top-right",
-        autoClose: 3000,
-        style: { backgroundColor: "rgb(63 98 18)", color: "white" },
-      });
-      onLogin();
-      setTimeout(() => {
-        navigate("/dashboard"); // Navigate to the dashboard
-      }, 3000);
-    } else {
-      toast.error("Invalid username or password!", {
+    try {
+      // Authenticate user
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        username, // Firebase expects email as the username
+        password
+      );
+
+      const user = userCredential.user;
+
+      // Fetch the superAdmin document
+      const superAdminRef = doc(db, "superAdmin", "1001");
+      const superAdminSnap = await getDoc(superAdminRef);
+      const isSuperAdmin =
+        superAdminSnap.exists() && superAdminSnap.data().uid === user.uid;
+
+      // Query the admin collection for a matching uid
+      const adminRef = collection(db, "admin");
+      const adminQuery = query(adminRef, where("uid", "==", user.uid));
+      const adminSnap = await getDocs(adminQuery);
+      const isAdmin = !adminSnap.empty; // If any document matches, `isAdmin` is true
+
+      if (isSuperAdmin || isAdmin) {
+        toast.success("Login successful!", {
+          position: "top-right",
+          autoClose: 3000,
+          style: { backgroundColor: "rgb(63 98 18)", color: "white" },
+        });
+
+        onLogin();
+        setTimeout(() => {
+          navigate("/dashboard");
+        }, 3000);
+      } else {
+        toast.error("Unauthorized access!", {
+          position: "top-right",
+          autoClose: 3000,
+          style: { backgroundColor: "rgb(153 27 27)", color: "white" },
+        });
+        auth.signOut(); // Sign out unauthorized users
+      }
+    } catch (error) {
+      toast.error(error.message, {
         position: "top-right",
         autoClose: 3000,
         style: { backgroundColor: "rgb(153 27 27)", color: "white" },
@@ -46,13 +87,13 @@ const LoginPage = ({ onLogin }) => {
         <form onSubmit={handleLogin}>
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-600 mb-1">
-              Username
+              Email
             </label>
             <input
-              type="text"
+              type="email"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username"
+              placeholder="Enter your email"
               required
               className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-700 focus:ring focus:ring-green-200 focus:border-green-500"
             />
