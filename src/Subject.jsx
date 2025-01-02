@@ -1,17 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FaEdit, FaTrashAlt, FaEye } from "react-icons/fa";
+import { db } from "./config/firebase";
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  doc,
+  deleteDoc,
+  getDocs,
+  setDoc,
+} from "firebase/firestore";
 
 const Subject = () => {
-  const [subjects, setSubjects] = useState([
-    {
-      code: "MTH101",
-      name: "Mathematics",
-      description: "Basic Algebra and Calculus",
-      institute: "Institute A",
-      course: "Course X",
-    },
-  ]);
-
+  const [subjects, setSubjects] = useState([]);
   const [formData, setFormData] = useState({
     code: "",
     name: "",
@@ -20,35 +21,88 @@ const Subject = () => {
     course: "",
   });
 
+  const [institutes, setInstitutes] = useState([]);
+  const [availableCourses, setAvailableCourses] = useState([]);
   const [editingRecord, setEditingRecord] = useState(null);
   const [viewSubject, setViewSubject] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage, setRecordsPerPage] = useState(5);
 
-  const institutes = ["Institute A", "Institute B", "Institute C"];
-  const courses = ["Course X", "Course Y", "Course Z"];
+  useEffect(() => {
+    const fetchInstitutes = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, "institutes"));
+        const instituteList = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setInstitutes(instituteList);
+      } catch (error) {
+        console.error("Error fetching institutes: ", error);
+      }
+    };
 
-  const handleAddOrEditSubject = (e) => {
+    const fetchSubjects = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, "subjects"));
+        const subjectsList = querySnapshot.docs.map((doc) => ({
+          ...doc.data(),
+          id: doc.id,
+        }));
+        setSubjects(subjectsList);
+      } catch (error) {
+        console.error("Error fetching subjects: ", error);
+      }
+    };
+
+    fetchInstitutes();
+    fetchSubjects();
+  }, []);
+
+  const handleAddOrEditSubject = async (e) => {
     e.preventDefault();
+    try {
+      if (editingRecord) {
+        const docRef = doc(db, "subjects", editingRecord.code);
+        await updateDoc(docRef, formData);
+        setSubjects((prevSubjects) =>
+          prevSubjects.map((subject) =>
+            subject.code === editingRecord.code ? formData : subject
+          )
+        );
+        setEditingRecord(null);
+      } else {
+        const docRef = doc(db, "subjects", formData.code);
+        await setDoc(docRef, formData);
+        setSubjects([...subjects, formData]);
+      }
 
-    if (editingRecord) {
-      const updatedSubjects = subjects.map((subject) =>
-        subject.code === editingRecord.code ? formData : subject
-      );
-      setSubjects(updatedSubjects);
-      setEditingRecord(null);
-    } else {
-      setSubjects([...subjects, formData]);
+      setFormData({
+        code: "",
+        name: "",
+        description: "",
+        institute: "",
+        course: "",
+      });
+    } catch (error) {
+      console.error("Error adding/updating subject: ", error);
     }
+  };
 
-    setFormData({
-      code: "",
-      name: "",
-      description: "",
-      institute: "",
-      course: "",
-    });
+  const handleInstituteChange = (e) => {
+    const selectedInstitute = e.target.value;
+    setFormData({ ...formData, institute: selectedInstitute, course: "" });
+
+    // Find courses for the selected institute
+    const institute = institutes.find(
+      (inst) => inst.name === selectedInstitute
+    );
+    if (institute) {
+      setAvailableCourses(institute.courses || []);
+    } else {
+      setAvailableCourses([]);
+    }
   };
 
   const handleInputChange = (e) => {
@@ -61,9 +115,15 @@ const Subject = () => {
     setFormData(subject);
   };
 
-  const handleRemoveSubject = (index) => {
-    const updatedSubjects = subjects.filter((_, i) => i !== index);
-    setSubjects(updatedSubjects);
+  const handleRemoveSubject = async (index) => {
+    const subjectToRemove = subjects[index];
+    try {
+      const docRef = doc(db, "subjects", subjectToRemove.code);
+      await deleteDoc(docRef);
+      setSubjects(subjects.filter((_, i) => i !== index));
+    } catch (error) {
+      console.error("Error deleting subject: ", error);
+    }
   };
 
   const handleViewSubject = (subject) => {
@@ -92,7 +152,6 @@ const Subject = () => {
     (currentPage - 1) * recordsPerPage,
     currentPage * recordsPerPage
   );
-
   return (
     <main className="flex flex-col lg:flex-row p-4 sm:p-6 lg:p-10 gap-6">
       {/* Table Section */}
@@ -207,6 +266,49 @@ const Subject = () => {
         <form onSubmit={handleAddOrEditSubject} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">
+              Institute
+            </label>
+            <select
+              name="institute"
+              value={formData.institute}
+              onChange={handleInstituteChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              required
+            >
+              <option value="" disabled>
+                Select an institute
+              </option>
+              {institutes.map((institute) => (
+                <option key={institute.id} value={institute.name}>
+                  {institute.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Course
+            </label>
+            <select
+              name="course"
+              value={formData.course}
+              onChange={handleInputChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              required
+              disabled={!availableCourses.length}
+            >
+              <option value="" disabled>
+                Select a course
+              </option>
+              {availableCourses.map((courses, index) => (
+                <option key={index} value={courses}>
+                  {courses}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
               Subject Code
             </label>
             <input
@@ -247,48 +349,7 @@ const Subject = () => {
               required
             ></textarea>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Institute
-            </label>
-            <select
-              name="institute"
-              value={formData.institute}
-              onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
-              required
-            >
-              <option value="" disabled>
-                Select an institute
-              </option>
-              {institutes.map((institute, index) => (
-                <option key={index} value={institute}>
-                  {institute}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Course
-            </label>
-            <select
-              name="course"
-              value={formData.course}
-              onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
-              required
-            >
-              <option value="" disabled>
-                Select a course
-              </option>
-              {courses.map((course, index) => (
-                <option key={index} value={course}>
-                  {course}
-                </option>
-              ))}
-            </select>
-          </div>
+
           <button
             type="submit"
             className="w-full bg-lime-800 text-white px-4 py-2 rounded hover:bg-lime-900"
