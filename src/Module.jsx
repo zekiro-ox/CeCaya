@@ -1,107 +1,118 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  doc,
+  deleteDoc,
+  updateDoc,
+} from "firebase/firestore";
+import { db } from "./config/firebase";
 import { FaEdit, FaTrashAlt, FaEye } from "react-icons/fa";
 
 const Module = () => {
-  const [modules, setModules] = useState([
-    {
-      id: 1,
-      subjectCode: "MTH101",
-      moduleName: "Calculus Basics",
-      moduleFile: {
-        name: "calculus_basics.pdf",
-        url: "path_to_file/calculus_basics.pdf",
-      },
-      uploader: "John Doe",
-      dateUploaded: "2024-12-20",
-    },
-    {
-      id: 2,
-      subjectCode: "PHY101",
-      moduleName: "Quantum Physics Intro",
-      moduleFile: {
-        name: "quantum_physics.ppt",
-        url: "path_to_file/quantum_physics.ppt",
-      },
-      uploader: "Jane Smith",
-      dateUploaded: "2024-12-18",
-    },
-    // Add more modules here
-  ]);
-
+  const [modules, setModules] = useState([]);
   const [editingRecord, setEditingRecord] = useState(null);
   const [formData, setFormData] = useState({
-    id: "",
     subjectCode: "",
     moduleName: "",
     moduleFile: null,
     uploader: "",
-    dateUploaded: "",
   });
 
   const [viewModule, setViewModule] = useState(null);
   const [showModal, setShowModal] = useState(false);
-
-  // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage, setRecordsPerPage] = useState(5);
   const totalRecords = modules.length;
+  const indexOfLastRecord = currentPage * recordsPerPage;
+  const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
+  const currentModules = modules.slice(indexOfFirstRecord, indexOfLastRecord);
+  const [subjectCodes, setSubjectCodes] = useState([]);
+  const [users, setUsers] = useState(["Alice", "Bob", "Charlie"]);
 
-  // Predefined subject codes and users
-  const subjectCodes = ["MTH101", "PHY101", "CSE201"];
-  const users = ["John Doe", "Jane Smith", "Alice Johnson", "Bob Lee"];
-
-  const handleAddModule = (e) => {
-    e.preventDefault();
-
-    const updatedModule = {
-      ...formData,
-      id: modules.length + 1,
-      dateUploaded: new Date().toISOString().split("T")[0],
+  useEffect(() => {
+    // Fetch subject codes from Firestore
+    const fetchSubjectCodes = async () => {
+      const querySnapshot = await getDocs(collection(db, "subjects"));
+      const codes = querySnapshot.docs.map((doc) => doc.id); // Extract document IDs
+      setSubjectCodes(codes);
     };
 
-    setModules([...modules, updatedModule]);
+    fetchSubjectCodes();
+  }, []);
+
+  useEffect(() => {
+    fetchModules();
+  }, []);
+
+  const fetchModules = async () => {
+    const querySnapshot = await getDocs(collection(db, "module"));
+    const moduleData = [];
+    querySnapshot.forEach((doc) => {
+      moduleData.push({ id: doc.id, ...doc.data() });
+    });
+    setModules(moduleData);
+  };
+
+  const handleAddModule = async (e) => {
+    e.preventDefault();
+    const docRef = await addDoc(collection(db, "module"), {
+      subjectCode: formData.subjectCode,
+      moduleName: formData.moduleName,
+      moduleFile: formData.moduleFile,
+      uploader: formData.uploader,
+      dateUploaded: new Date().toISOString().split("T")[0],
+    });
+
+    setModules([...modules, { id: docRef.id, ...formData }]);
     setFormData({
-      id: "",
       subjectCode: "",
       moduleName: "",
       moduleFile: null,
       uploader: "",
-      dateUploaded: "",
     });
   };
 
   const handleEditRecord = (module) => {
     setEditingRecord(module.id);
     setFormData({
-      id: module.id,
       subjectCode: module.subjectCode,
       moduleName: module.moduleName,
       moduleFile: module.moduleFile,
       uploader: module.uploader,
-      dateUploaded: module.dateUploaded,
     });
   };
 
-  const handleSaveChanges = (e) => {
+  const handleSaveChanges = async (e) => {
     e.preventDefault();
-    const updatedModules = modules.map((module) =>
-      module.id === formData.id ? { ...formData } : module
+    const moduleRef = doc(db, "module", editingRecord);
+    await updateDoc(moduleRef, { ...formData });
+
+    setModules(
+      modules.map((module) =>
+        module.id === editingRecord
+          ? { id: editingRecord, ...formData }
+          : module
+      )
     );
-    setModules(updatedModules);
+
     setEditingRecord(null);
     setFormData({
-      id: "",
       subjectCode: "",
       moduleName: "",
       moduleFile: null,
       uploader: "",
-      dateUploaded: "",
     });
   };
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+  };
+
+  const handleRemoveModule = async (id) => {
+    await deleteDoc(doc(db, "module", id));
+    setModules(modules.filter((module) => module.id !== id));
   };
 
   const handleFileUpload = (e) => {
@@ -112,38 +123,26 @@ const Module = () => {
     });
   };
 
-  const handleRemoveModule = (index) => {
-    const updatedModules = modules.filter((_, i) => i !== index);
-    setModules(updatedModules);
-  };
-
-  const handleViewModule = (module) => {
-    setViewModule(module);
-    setShowModal(true);
-  };
-
-  // Pagination Logic
   const handleNextPage = () => {
-    if (currentPage < totalRecords / recordsPerPage) {
-      setCurrentPage(currentPage + 1);
+    if (currentPage * recordsPerPage < totalRecords) {
+      setCurrentPage((prevPage) => prevPage + 1);
     }
   };
 
   const handlePreviousPage = () => {
     if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
+      setCurrentPage((prevPage) => prevPage - 1);
     }
   };
 
   const handleRecordsPerPageChange = (e) => {
-    setRecordsPerPage(Number(e.target.value));
-    setCurrentPage(1); // Reset to the first page when changing records per page
+    setRecordsPerPage(parseInt(e.target.value, 10));
+    setCurrentPage(1); // Reset to the first page
   };
-
-  const currentModules = modules.slice(
-    (currentPage - 1) * recordsPerPage,
-    currentPage * recordsPerPage
-  );
+  const handleViewModule = (module) => {
+    setViewModule(module);
+    setShowModal(true);
+  };
 
   return (
     <main className="flex flex-col lg:flex-row p-4 sm:p-6 lg:p-10 gap-6">
@@ -175,7 +174,7 @@ const Module = () => {
             </tr>
           </thead>
           <tbody>
-            {currentModules.map((module, index) => (
+            {modules.map((module, index) => (
               <tr key={index} className="hover:bg-gray-50">
                 <td className="border border-gray-200 px-4 py-2">
                   {module.id}
@@ -209,7 +208,7 @@ const Module = () => {
                     <FaEdit />
                   </button>
                   <button
-                    onClick={() => handleRemoveModule(index)}
+                    onClick={() => handleRemoveModule(module.id)}
                     className="bg-red-800 text-white p-2 rounded hover:bg-red-900 flex items-center"
                   >
                     <FaTrashAlt />
@@ -270,27 +269,29 @@ const Module = () => {
           onSubmit={editingRecord ? handleSaveChanges : handleAddModule}
           className="space-y-4"
         >
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Subject Code
-            </label>
-            <select
-              name="subjectCode"
-              value={formData.subjectCode}
-              onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
-              required
-            >
-              <option value="" disabled>
-                Select a subject code
-              </option>
-              {subjectCodes.map((code, index) => (
+          <select
+            name="subjectCode"
+            value={formData.subjectCode}
+            onChange={handleInputChange}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+            required
+          >
+            <option value="" disabled>
+              Select a subject code
+            </option>
+            {subjectCodes?.length > 0 ? (
+              subjectCodes.map((code, index) => (
                 <option key={index} value={code}>
                   {code}
                 </option>
-              ))}
-            </select>
-          </div>
+              ))
+            ) : (
+              <option value="" disabled>
+                No subject codes available
+              </option>
+            )}
+          </select>
+
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Module Name
@@ -331,11 +332,17 @@ const Module = () => {
               <option value="" disabled>
                 Select uploader
               </option>
-              {users.map((user, index) => (
-                <option key={index} value={user}>
-                  {user}
+              {users?.length > 0 ? (
+                users.map((user, index) => (
+                  <option key={index} value={user}>
+                    {user}
+                  </option>
+                ))
+              ) : (
+                <option value="" disabled>
+                  No users available
                 </option>
-              ))}
+              )}
             </select>
           </div>
           <button
