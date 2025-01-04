@@ -313,6 +313,14 @@ const User = () => {
   };
 
   const handleRemoveUser = async (user) => {
+    const currentUser = auth.currentUser; // Get the logged-in user from Firebase Authentication
+
+    // Prevent admin from deleting their own account
+    if (currentUser && currentUser.uid === user.uid) {
+      alert("You cannot delete your own account.");
+      return; // Exit the function if the user is trying to delete their own account
+    }
+
     if (
       window.confirm(
         `Are you sure you want to delete ${user.firstName} ${user.lastName}?`
