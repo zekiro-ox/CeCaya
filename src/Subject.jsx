@@ -113,6 +113,12 @@ const Subject = () => {
   const handleEditRecord = (subject) => {
     setEditingRecord(subject);
     setFormData(subject);
+
+    // Populate available courses based on the selected institute
+    const selectedInstitute = institutes.find(
+      (inst) => inst.name === subject.institute
+    );
+    setAvailableCourses(selectedInstitute?.courses || []);
   };
 
   const handleRemoveSubject = async (index) => {
@@ -293,20 +299,23 @@ const Subject = () => {
               name="course"
               value={formData.course}
               onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2 ${
+                !availableCourses.length ? "bg-gray-100 cursor-not-allowed" : ""
+              }`}
               required
-              disabled={!availableCourses.length}
+              disabled={!availableCourses.length} // Disable only if there are no courses
             >
               <option value="" disabled>
                 Select a course
               </option>
-              {availableCourses.map((courses, index) => (
-                <option key={index} value={courses}>
-                  {courses}
+              {availableCourses.map((course, index) => (
+                <option key={index} value={course}>
+                  {course}
                 </option>
               ))}
             </select>
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Subject Code

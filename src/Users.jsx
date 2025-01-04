@@ -1,36 +1,23 @@
-import React, { useState } from "react";
+// src/components/User.jsx
+import React, { useState, useEffect } from "react";
 import { FaEdit, FaTrashAlt, FaEye } from "react-icons/fa";
+import { auth, db } from "./config/firebase"; // Import Firebase config
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import {
+  collection,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  setDoc,
+  runTransaction,
+} from "firebase/firestore";
 
 const User = () => {
-  const [users, setUsers] = useState([
-    {
-      id: 1,
-      firstName: "John",
-      lastName: "Doe",
-      username: "johndoe",
-      email: "john.doe@example.com",
-      status: "Approved",
-      institute: "Institute A",
-      course: "Course X",
-      userType: "Admin",
-    },
-    {
-      id: 2,
-      firstName: "Jane",
-      lastName: "Smith",
-      username: "janesmith",
-      email: "jane.smith@example.com",
-      status: "Not Approved",
-      institute: "Institute B",
-      course: "Course Y",
-      userType: "Professor",
-    },
-    // Add more users here
-  ]);
-
+  const [users, setUsers] = useState([]);
   const [editingRecord, setEditingRecord] = useState(null);
   const [formData, setFormData] = useState({
-    id: "",
     firstName: "",
     lastName: "",
     username: "",
@@ -51,83 +38,311 @@ const User = () => {
   const [recordsPerPage, setRecordsPerPage] = useState(5);
   const totalRecords = users.length;
 
-  // Predefined institutes and courses
-  const institutes = ["Institute A", "Institute B", "Institute C"];
-  const courses = ["Course X", "Course Y", "Course Z"];
+  const [institutes, setInstitutes] = useState([]); // To store institute data
+  const [filteredCourses, setFilteredCourses] = useState([]);
   const userTypes = ["Admin", "Professor"];
   const statusOptions = ["Approved", "Not Approved"];
+  const institutesCollectionRef = collection(db, "institutes");
 
-  const handleAddUser = (e) => {
-    e.preventDefault();
+  // References to Firestore collections
+  const adminCollectionRef = collection(db, "admin");
+  const professorCollectionRef = collection(db, "professor");
+  const countersCollectionRef = collection(db, "counters");
 
-    const updatedUser = {
-      ...formData,
-      id: users.length + 1,
+  // Fetch users from Firestore on component mount
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        // Fetch Admin Users
+        const adminSnapshot = await getDocs(adminCollectionRef);
+        const adminUsers = adminSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        // Fetch Professor Users
+        const professorSnapshot = await getDocs(professorCollectionRef);
+        const professorUsers = professorSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        // Combine both Admin and Professor users
+        setUsers([...adminUsers, ...professorUsers]);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        alert("Failed to fetch users.");
+      }
     };
 
-    setUsers([...users, updatedUser]);
-    setFormData({
-      id: "",
-      firstName: "",
-      lastName: "",
-      username: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-      status: "",
-      institute: "",
-      course: "",
-      userType: "",
-    });
-  };
+    fetchUsers();
+  }, []);
 
-  const handleEditRecord = (user) => {
-    setEditingRecord(user.id);
-    setFormData({
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      username: user.username,
-      email: user.email,
-      status: user.status,
-      institute: user.institute,
-      course: user.course,
-      userType: user.userType,
-    });
-  };
+  useEffect(() => {
+    const fetchInstitutes = async () => {
+      try {
+        const snapshot = await getDocs(institutesCollectionRef);
+        const fetchedInstitutes = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setInstitutes(fetchedInstitutes);
+      } catch (error) {
+        console.error("Error fetching institutes:", error);
+      }
+    };
 
-  const handleSaveChanges = (e) => {
-    e.preventDefault();
-    const updatedUsers = users.map((user) =>
-      user.id === formData.id ? { ...formData, password: user.password } : user
+    fetchInstitutes();
+  }, []);
+
+  // Handle institute selection
+  const handleInstituteChange = (e) => {
+    const selectedInstitute = e.target.value;
+    setFormData({ ...formData, institute: selectedInstitute, course: "" }); // Reset course selection
+
+    // Find the selected institute and its courses
+    const institute = institutes.find(
+      (inst) => inst.name === selectedInstitute
     );
-    setUsers(updatedUsers);
-    setEditingRecord(null);
-    setFormData({
-      id: "",
-      firstName: "",
-      lastName: "",
-      username: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-      status: "",
-      institute: "",
-      course: "",
-      userType: "",
-    });
+    setFilteredCourses(institute ? institute.courses : []);
   };
 
+  // Handle input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleRemoveUser = (index) => {
-    const updatedUsers = users.filter((_, i) => i !== index);
-    setUsers(updatedUsers);
+  // Handle adding a new user
+  const handleAddUser = async (e) => {
+    e.preventDefault();
+
+    // Basic validation
+    if (
+      !formData.firstName ||
+      !formData.lastName ||
+      !formData.username ||
+      !formData.email ||
+      !formData.password ||
+      !formData.confirmPassword ||
+      !formData.status ||
+      !formData.institute ||
+      !formData.course ||
+      !formData.userType
+    ) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+
+    try {
+      // Create user in Firebase Authentication
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+      const uid = userCredential.user.uid;
+
+      // Determine collection based on user type
+      const userCollection =
+        formData.userType === "Admin"
+          ? adminCollectionRef
+          : professorCollectionRef;
+
+      // Generate formatted ID (A0001 or P0001)
+      const formattedId = await generateFormattedId(formData.userType);
+
+      // Save user data to Firestore with formatted ID
+      await setDoc(doc(db, userCollection.path, formattedId), {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        username: formData.username,
+        email: formData.email,
+        uid: uid,
+        institute: formData.institute,
+        course: formData.course,
+        userType: formData.userType,
+        status: formData.status,
+      });
+
+      // Update local state for UI purposes
+      setUsers([...users, { id: formattedId, ...formData, uid: uid }]);
+
+      // Clear form
+      setFormData({
+        firstName: "",
+        lastName: "",
+        username: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        status: "",
+        institute: "",
+        course: "",
+        userType: "",
+      });
+      alert("User added successfully!");
+    } catch (error) {
+      console.error("Error adding user:", error.message);
+      alert(`Error adding user: ${error.message}`);
+    }
+  };
+  // Function to generate formatted ID
+  const generateFormattedId = async (userType) => {
+    const counterDocId = userType === "Admin" ? "admin" : "professor";
+
+    try {
+      const newId = await runTransaction(db, async (transaction) => {
+        const counterDocRef = doc(countersCollectionRef, counterDocId);
+        const counterDoc = await transaction.get(counterDocRef);
+
+        if (!counterDoc.exists()) {
+          throw new Error("Counter document does not exist!");
+        }
+
+        const currentId = counterDoc.data().lastId;
+        const updatedId = currentId + 1;
+        transaction.update(counterDocRef, { lastId: updatedId });
+
+        // Format ID with prefix and leading zeros
+        const prefix = userType === "Admin" ? "A" : "P";
+        const formattedId = `${prefix}${updatedId.toString().padStart(4, "0")}`;
+        return formattedId;
+      });
+
+      return newId;
+    } catch (error) {
+      console.error("Error generating formatted ID:", error);
+      throw error;
+    }
   };
 
+  // Handle editing a user
+  const handleEditRecord = (user) => {
+    setEditingRecord(user.id);
+
+    // Find the institute to prepopulate courses
+    const selectedInstitute = institutes.find(
+      (inst) => inst.name === user.institute
+    );
+
+    setFormData({
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      username: user.username || "",
+      email: user.email || "", // Email is not editable
+      password: "", // Password is not editable here
+      confirmPassword: "",
+      status: user.status || "",
+      institute: user.institute || "",
+      course: user.course || "",
+      userType: user.userType || "",
+    });
+
+    // Prepopulate courses based on the institute
+    setFilteredCourses(selectedInstitute ? selectedInstitute.courses : []);
+  };
+
+  // Handle saving changes after editing
+  const handleSaveChanges = async (e) => {
+    e.preventDefault();
+
+    // Basic validation
+    if (
+      !formData.firstName ||
+      !formData.lastName ||
+      !formData.username ||
+      !formData.status ||
+      !formData.institute ||
+      !formData.course ||
+      !formData.userType
+    ) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+
+    try {
+      // Determine collection based on user type
+      const userType = formData.userType;
+      const userCollection =
+        userType === "Admin" ? adminCollectionRef : professorCollectionRef;
+
+      // Update user data in Firestore
+      await updateDoc(doc(db, userCollection.path, editingRecord), {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        username: formData.username,
+        // Email is not editable in this form
+        status: formData.status,
+        institute: formData.institute,
+        course: formData.course,
+        userType: formData.userType,
+      });
+
+      // Update local state
+      setUsers(
+        users.map((user) =>
+          user.id === editingRecord ? { ...user, ...formData } : user
+        )
+      );
+
+      // Clear form and editing state
+      setEditingRecord(null);
+      setFormData({
+        firstName: "",
+        lastName: "",
+        username: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        status: "",
+        institute: "",
+        course: "",
+        userType: "",
+      });
+      alert("User updated successfully!");
+    } catch (error) {
+      console.error("Error updating user:", error.message);
+      alert(`Error updating user: ${error.message}`);
+    }
+  };
+
+  const handleRemoveUser = async (user) => {
+    if (
+      window.confirm(
+        `Are you sure you want to delete ${user.firstName} ${user.lastName}?`
+      )
+    ) {
+      try {
+        // Determine collection based on user type
+        const userCollection =
+          user.userType === "Admin"
+            ? adminCollectionRef
+            : professorCollectionRef;
+
+        // Delete user from Firestore
+        await deleteDoc(doc(db, userCollection.path, user.id));
+
+        // Do not decrement the counter to prevent ID reuse issues
+        // Counters should only increment for new users and not be adjusted for deletions
+
+        // Update local state
+        setUsers(users.filter((u) => u.id !== user.id));
+
+        alert("User deleted successfully!");
+      } catch (error) {
+        console.error("Error deleting user:", error.message);
+        alert(`Error deleting user: ${error.message}`);
+      }
+    }
+  };
+
+  // Handle viewing a user's details
   const handleViewUser = (user) => {
     setViewUser(user);
     setShowModal(true);
@@ -186,8 +401,8 @@ const User = () => {
             </tr>
           </thead>
           <tbody>
-            {currentUsers.map((user, index) => (
-              <tr key={index} className="hover:bg-gray-50">
+            {currentUsers.map((user) => (
+              <tr key={user.id} className="hover:bg-gray-50">
                 <td className="border border-gray-200 px-4 py-2">{user.id}</td>
                 <td className="border border-gray-200 px-4 py-2">
                   {user.firstName} {user.lastName}
@@ -212,7 +427,7 @@ const User = () => {
                     <FaEdit />
                   </button>
                   <button
-                    onClick={() => handleRemoveUser(index)}
+                    onClick={() => handleRemoveUser(user)}
                     className="bg-red-800 text-white p-2 rounded hover:bg-red-900 flex items-center"
                   >
                     <FaTrashAlt />
@@ -273,48 +488,7 @@ const User = () => {
           onSubmit={editingRecord ? handleSaveChanges : handleAddUser}
           className="space-y-4"
         >
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Institute
-            </label>
-            <select
-              name="institute"
-              value={formData.institute}
-              onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
-              required
-            >
-              <option value="" disabled>
-                Select Institute
-              </option>
-              {institutes.map((institute, index) => (
-                <option key={index} value={institute}>
-                  {institute}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Course
-            </label>
-            <select
-              name="course"
-              value={formData.course}
-              onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
-              required
-            >
-              <option value="" disabled>
-                Select Course
-              </option>
-              {courses.map((course, index) => (
-                <option key={index} value={course}>
-                  {course}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* First Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
               First Name
@@ -329,6 +503,8 @@ const User = () => {
               required
             />
           </div>
+
+          {/* Last Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Last Name
@@ -343,6 +519,8 @@ const User = () => {
               required
             />
           </div>
+
+          {/* Username */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Username
@@ -357,6 +535,8 @@ const User = () => {
               required
             />
           </div>
+
+          {/* Email */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Email
@@ -372,6 +552,8 @@ const User = () => {
               disabled={editingRecord !== null} // Disable if editing
             />
           </div>
+
+          {/* Password */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Password
@@ -383,10 +565,12 @@ const User = () => {
               onChange={handleInputChange}
               placeholder="Enter password"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
-              required
+              required={!editingRecord} // Required only if adding
               disabled={editingRecord !== null} // Disable if editing
             />
           </div>
+
+          {/* Confirm Password */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Confirm Password
@@ -398,10 +582,12 @@ const User = () => {
               onChange={handleInputChange}
               placeholder="Confirm password"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
-              required
+              required={!editingRecord} // Required only if adding
               disabled={editingRecord !== null} // Disable if editing
             />
           </div>
+
+          {/* User Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
               User Type
@@ -412,6 +598,7 @@ const User = () => {
               onChange={handleInputChange}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
               required
+              disabled={editingRecord !== null} // Disable if editing
             >
               <option value="" disabled>
                 Select User Type
@@ -423,6 +610,51 @@ const User = () => {
               ))}
             </select>
           </div>
+
+          {/* Institute */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Institute
+            </label>
+            <select
+              name="institute"
+              value={formData.institute}
+              onChange={handleInstituteChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              required
+            >
+              <option value="">Select Institute</option>
+              {institutes.map((inst) => (
+                <option key={inst.id} value={inst.name}>
+                  {inst.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Course */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Course
+            </label>
+            <select
+              name="course"
+              value={formData.course}
+              onChange={handleInputChange}
+              disabled={!filteredCourses.length}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              required // Disable if no courses are available
+            >
+              <option value="">Select Course</option>
+              {filteredCourses.map((course, index) => (
+                <option key={index} value={course}>
+                  {course}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Status
@@ -444,6 +676,8 @@ const User = () => {
               ))}
             </select>
           </div>
+
+          {/* Submit Button */}
           <button
             type="submit"
             className="w-full bg-lime-800 text-white p-2 rounded hover:bg-lime-900"

@@ -1,37 +1,28 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FaEdit, FaTrashAlt, FaEye } from "react-icons/fa";
+import { db } from "./config/firebase";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  updateDoc,
+  doc,
+  deleteDoc,
+} from "firebase/firestore";
+import axios from "axios";
 
 const Application = () => {
-  const [applications, setApplications] = useState([
-    {
-      id: 1,
-      logo: "path_to_logo/logo1.png",
-      applicationName: "App One",
-      status: "Approved",
-      institute: "Institute A",
-      course: "Course X",
-    },
-    {
-      id: 2,
-      logo: "path_to_logo/logo2.png",
-      applicationName: "App Two",
-      status: "Not Approved",
-      institute: "Institute B",
-      course: "Course Y",
-    },
-    // Add more applications here
-  ]);
-
+  const [applications, setApplications] = useState([]);
+  const [institutes, setInstitutes] = useState([]);
+  const [courses, setCourses] = useState([]); // Dynamically updated courses
   const [editingRecord, setEditingRecord] = useState(null);
   const [formData, setFormData] = useState({
-    id: "",
     logo: null,
     applicationName: "",
     status: "",
     institute: "",
     course: "",
   });
-
   const [viewApplication, setViewApplication] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
@@ -40,79 +31,145 @@ const Application = () => {
   const [recordsPerPage, setRecordsPerPage] = useState(5);
   const totalRecords = applications.length;
 
-  // Predefined institutes and courses
-  const institutes = ["Institute A", "Institute B", "Institute C"];
-  const courses = ["Course X", "Course Y", "Course Z"];
-
-  const handleAddApplication = (e) => {
-    e.preventDefault();
-
-    const updatedApplication = {
-      ...formData,
-      id: applications.length + 1,
+  // Fetch institutes and applications
+  useEffect(() => {
+    const fetchInstitutes = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, "institutes"));
+        const instituteList = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setInstitutes(instituteList); // Keep the full data to access courses later
+      } catch (error) {
+        console.error("Error fetching institutes:", error);
+      }
     };
 
-    setApplications([...applications, updatedApplication]);
-    setFormData({
-      id: "",
-      logo: null,
-      applicationName: "",
-      status: "",
-      institute: "",
-      course: "",
-    });
+    const fetchApplications = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, "applications"));
+        const appList = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setApplications(appList);
+      } catch (error) {
+        console.error("Error fetching applications:", error);
+      }
+    };
+
+    fetchInstitutes();
+    fetchApplications();
+  }, []);
+
+  const handleAddApplication = async (e) => {
+    e.preventDefault();
+    try {
+      const docRef = await addDoc(collection(db, "applications"), formData);
+      setApplications([...applications, { id: docRef.id, ...formData }]);
+      setFormData({
+        logo: null,
+        applicationName: "",
+        status: "",
+        institute: "",
+        course: "",
+      });
+    } catch (error) {
+      console.error("Error adding application:", error);
+    }
   };
 
   const handleEditRecord = (application) => {
     setEditingRecord(application.id);
+
+    // Find the selected institute and pre-populate courses
+    const selectedInstitute = institutes.find(
+      (inst) => inst.name === application.institute
+    );
+
+    setCourses(selectedInstitute?.courses || []); // Set courses based on the institute
     setFormData({
-      id: application.id,
-      logo: application.logo,
-      applicationName: application.applicationName,
-      status: application.status,
-      institute: application.institute,
-      course: application.course,
+      ...application, // Retain the existing form data
+      logo: application.logo, // Ensure the logo URL is set
     });
   };
 
-  const handleSaveChanges = (e) => {
+  const handleSaveChanges = async (e) => {
     e.preventDefault();
-    const updatedApplications = applications.map((application) =>
-      application.id === formData.id ? { ...formData } : application
-    );
-    setApplications(updatedApplications);
-    setEditingRecord(null);
-    setFormData({
-      id: "",
-      logo: null,
-      applicationName: "",
-      status: "",
-      institute: "",
-      course: "",
-    });
+    try {
+      const appRef = doc(db, "applications", editingRecord);
+      await updateDoc(appRef, formData);
+
+      setApplications(
+        applications.map((app) =>
+          app.id === editingRecord ? { id: editingRecord, ...formData } : app
+        )
+      );
+      setEditingRecord(null);
+      setFormData({
+        logo: null,
+        applicationName: "",
+        status: "",
+        institute: "",
+        course: "",
+      });
+    } catch (error) {
+      console.error("Error saving changes:", error);
+    }
+  };
+
+  const handleRemoveApplication = async (id) => {
+    try {
+      await deleteDoc(doc(db, "applications", id));
+      setApplications(applications.filter((app) => app.id !== id));
+    } catch (error) {
+      console.error("Error deleting application:", error);
+    }
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+
+    if (name === "institute") {
+      const selectedInstitute = institutes.find((inst) => inst.name === value);
+      setCourses(selectedInstitute?.courses || []);
+
+      // Reset the course only if a new institute is selected
+      setFormData((prevFormData) => ({
+        ...prevFormData,
+        institute: value,
+        course: prevFormData.institute === value ? prevFormData.course : "", // Reset course if the institute changes
+      }));
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
   };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files[0];
-    setFormData({ ...formData, logo: URL.createObjectURL(file) });
+    const uploadFormData = new FormData();
+
+    uploadFormData.append("file", file);
+    uploadFormData.append("upload_preset", "cecaya_preset"); // Replace with your Cloudinary upload preset
+    uploadFormData.append("folder", "applications"); // Optional: specify a folder in Cloudinary
+
+    try {
+      const response = await axios.post(
+        `https://api.cloudinary.com/v1_1/dqslazit0/image/upload`, // Replace with your Cloudinary cloud name
+        uploadFormData
+      );
+
+      const fileUrl = response.data.secure_url; // Get the URL of the uploaded image
+      setFormData((prevFormData) => ({
+        ...prevFormData,
+        logo: fileUrl, // Save the Cloudinary URL
+      }));
+    } catch (error) {
+      console.error("Error uploading file to Cloudinary:", error);
+    }
   };
 
-  const handleRemoveApplication = (index) => {
-    const updatedApplications = applications.filter((_, i) => i !== index);
-    setApplications(updatedApplications);
-  };
-
-  const handleViewApplication = (application) => {
-    setViewApplication(application);
-    setShowModal(true);
-  };
-
-  // Pagination Logic
   const handleNextPage = () => {
     if (currentPage < Math.ceil(totalRecords / recordsPerPage)) {
       setCurrentPage(currentPage + 1);
@@ -135,6 +192,10 @@ const Application = () => {
     currentPage * recordsPerPage
   );
 
+  const handleViewApplication = (application) => {
+    setViewApplication(application);
+    setShowModal(true);
+  };
   return (
     <main className="flex flex-col lg:flex-row p-4 sm:p-6 lg:p-10 gap-6">
       {/* Table Section */}
@@ -197,7 +258,7 @@ const Application = () => {
                     <FaEdit />
                   </button>
                   <button
-                    onClick={() => handleRemoveApplication(index)}
+                    onClick={() => handleRemoveApplication(application.id)}
                     className="bg-red-800 text-white p-2 rounded hover:bg-red-900 flex items-center"
                   >
                     <FaTrashAlt />
@@ -273,8 +334,8 @@ const Application = () => {
                 Select Institute
               </option>
               {institutes.map((institute, index) => (
-                <option key={index} value={institute}>
-                  {institute}
+                <option key={index} value={institute.name}>
+                  {institute.name}
                 </option>
               ))}
             </select>
@@ -287,8 +348,11 @@ const Application = () => {
               name="course"
               value={formData.course}
               onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2 ${
+                !formData.institute ? "bg-gray-100 cursor-not-allowed" : ""
+              }`}
               required
+              disabled={!formData.institute} // Disable if no institute selected
             >
               <option value="" disabled>
                 Select Course
@@ -368,7 +432,7 @@ const Application = () => {
               <img
                 src={viewApplication.logo}
                 alt="logo"
-                className="h-12 w-12 object-cover"
+                className="h-24 w-24 object-cover"
               />
             </p>
             <p>

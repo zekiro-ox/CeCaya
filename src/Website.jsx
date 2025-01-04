@@ -1,32 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FaEdit, FaTrashAlt, FaEye } from "react-icons/fa";
+import { db } from "./config/firebase";
+import {
+  collection,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+} from "firebase/firestore";
+import axios from "axios";
 
 const Website = () => {
-  const [websites, setWebsites] = useState([
-    {
-      id: 1,
-      logo: "path_to_logo/logo1.png",
-      websiteName: "Website One",
-      websiteLink: "https://www.websiteone.com",
-      status: "Approved",
-      institute: "Institute A",
-      course: "Course X",
-    },
-    {
-      id: 2,
-      logo: "path_to_logo/logo2.png",
-      websiteName: "Website Two",
-      websiteLink: "https://www.websitetwo.com",
-      status: "Not Approved",
-      institute: "Institute B",
-      course: "Course Y",
-    },
-    // Add more websites here
-  ]);
-
-  const [editingRecord, setEditingRecord] = useState(null);
+  const [websites, setWebsites] = useState([]);
   const [formData, setFormData] = useState({
-    id: "",
     logo: null,
     websiteName: "",
     websiteLink: "",
@@ -34,30 +21,64 @@ const Website = () => {
     institute: "",
     course: "",
   });
-
+  const [editingRecord, setEditingRecord] = useState(null);
   const [viewWebsite, setViewWebsite] = useState(null);
   const [showModal, setShowModal] = useState(false);
-
-  // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage, setRecordsPerPage] = useState(5);
   const totalRecords = websites.length;
 
-  // Predefined institutes and courses
-  const institutes = ["Institute A", "Institute B", "Institute C"];
-  const courses = ["Course X", "Course Y", "Course Z"];
+  const [institutesData, setInstitutesData] = useState([]);
+  const [courses, setCourses] = useState([]);
 
-  const handleAddWebsite = (e) => {
-    e.preventDefault();
+  const websitesRef = collection(db, "website");
+  const institutesRef = collection(db, "institutes");
 
-    const updatedWebsite = {
-      ...formData,
-      id: websites.length + 1,
+  // Fetch websites from Firestore
+  useEffect(() => {
+    const fetchData = async () => {
+      const [websitesSnapshot, institutesSnapshot] = await Promise.all([
+        getDocs(websitesRef),
+        getDocs(institutesRef),
+      ]);
+
+      // Map websites data
+      const websitesData = websitesSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setWebsites(websitesData);
+
+      // Map institutes data
+      const institutesData = institutesSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        name: doc.data().name,
+        courses: doc.data().courses,
+      }));
+      setInstitutesData(institutesData);
     };
 
-    setWebsites([...websites, updatedWebsite]);
+    fetchData();
+  }, []);
+
+  const handleInstituteChange = (e) => {
+    const selectedInstitute = e.target.value;
+    setFormData({ ...formData, institute: selectedInstitute, course: "" });
+
+    // Find the courses for the selected institute
+    const selectedInstituteData = institutesData.find(
+      (institute) => institute.name === selectedInstitute
+    );
+    setCourses(selectedInstituteData?.courses || []);
+  };
+
+  // Add new website to Firestore
+  const handleAddWebsite = async (e) => {
+    e.preventDefault();
+    const newWebsite = { ...formData };
+    const docRef = await addDoc(websitesRef, newWebsite);
+    setWebsites([...websites, { id: docRef.id, ...newWebsite }]);
     setFormData({
-      id: "",
       logo: null,
       websiteName: "",
       websiteLink: "",
@@ -67,28 +88,21 @@ const Website = () => {
     });
   };
 
-  const handleEditRecord = (website) => {
-    setEditingRecord(website.id);
-    setFormData({
-      id: website.id,
-      logo: website.logo,
-      websiteName: website.websiteName,
-      websiteLink: website.websiteLink,
-      status: website.status,
-      institute: website.institute,
-      course: website.course,
-    });
-  };
-
-  const handleSaveChanges = (e) => {
+  // Update website in Firestore
+  const handleSaveChanges = async (e) => {
     e.preventDefault();
-    const updatedWebsites = websites.map((website) =>
-      website.id === formData.id ? { ...formData } : website
+    const websiteDoc = doc(db, "website", editingRecord);
+    await updateDoc(websiteDoc, formData);
+
+    setWebsites(
+      websites.map((website) =>
+        website.id === editingRecord
+          ? { id: editingRecord, ...formData }
+          : website
+      )
     );
-    setWebsites(updatedWebsites);
     setEditingRecord(null);
     setFormData({
-      id: "",
       logo: null,
       websiteName: "",
       websiteLink: "",
@@ -96,6 +110,20 @@ const Website = () => {
       institute: "",
       course: "",
     });
+  };
+
+  // Delete website from Firestore
+  const handleRemoveWebsite = async (id) => {
+    const websiteDoc = doc(db, "website", id);
+    await deleteDoc(websiteDoc);
+
+    setWebsites(websites.filter((website) => website.id !== id));
+  };
+
+  // View website details
+  const handleViewWebsite = (website) => {
+    setViewWebsite(website);
+    setShowModal(true);
   };
 
   const handleInputChange = (e) => {
@@ -103,19 +131,52 @@ const Website = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files[0];
-    setFormData({ ...formData, logo: URL.createObjectURL(file) });
-  };
+    if (!file) return;
 
-  const handleRemoveWebsite = (index) => {
-    const updatedWebsites = websites.filter((_, i) => i !== index);
-    setWebsites(updatedWebsites);
-  };
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", "cecaya_preset");
 
-  const handleViewWebsite = (website) => {
-    setViewWebsite(website);
-    setShowModal(true);
+    try {
+      const response = await axios.post(
+        `https://api.cloudinary.com/v1_1/dqslazit0/image/upload`,
+        formData,
+        {
+          onUploadProgress: (progressEvent) => {
+            const progress = Math.round(
+              (progressEvent.loaded / progressEvent.total) * 100
+            );
+            console.log(`Upload Progress: ${progress}%`);
+          },
+        }
+      );
+
+      const logoUrl = response.data.secure_url;
+      setFormData({ ...formData, logo: logoUrl });
+    } catch (error) {
+      console.error("Error uploading file to Cloudinary:", error);
+    }
+  };
+  const handleEditRecord = (website) => {
+    setEditingRecord(website.id);
+
+    // Find the institute's courses and populate them
+    const selectedInstituteData = institutesData.find(
+      (institute) => institute.name === website.institute
+    );
+    setCourses(selectedInstituteData?.courses || []);
+
+    // Populate the formData with all fields
+    setFormData({
+      logo: website.logo || null,
+      websiteName: website.websiteName || "",
+      websiteLink: website.websiteLink || "",
+      status: website.status || "",
+      institute: website.institute || "",
+      course: website.course || "",
+    });
   };
 
   // Pagination Logic
@@ -284,16 +345,16 @@ const Website = () => {
             <select
               name="institute"
               value={formData.institute}
-              onChange={handleInputChange}
+              onChange={handleInstituteChange}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
               required
             >
               <option value="" disabled>
                 Select Institute
               </option>
-              {institutes.map((institute, index) => (
-                <option key={index} value={institute}>
-                  {institute}
+              {institutesData.map((institute) => (
+                <option key={institute.id} value={institute.name}>
+                  {institute.name}
                 </option>
               ))}
             </select>
@@ -308,6 +369,7 @@ const Website = () => {
               onChange={handleInputChange}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
               required
+              disabled={!courses.length}
             >
               <option value="" disabled>
                 Select Course
@@ -337,12 +399,32 @@ const Website = () => {
             <label className="block text-sm font-medium text-gray-700">
               Website Logo
             </label>
+
+            {/* Show the current logo if editing and a logo exists */}
+            {formData.logo && (
+              <div className="mb-2">
+                <img
+                  src={formData.logo}
+                  alt="Current Logo"
+                  className="h-16 w-16 object-cover rounded border"
+                />
+                <button
+                  type="button"
+                  className="mt-2 text-red-600 hover:underline text-sm"
+                  onClick={() => setFormData({ ...formData, logo: null })}
+                >
+                  Remove Logo
+                </button>
+              </div>
+            )}
+
+            {/* File input for logo */}
             <input
               type="file"
               accept=".png,.jpg,.jpeg"
               onChange={handleFileUpload}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
-              required
+              required={!formData.logo} // Required only if no logo exists
             />
           </div>
           <div>
@@ -401,7 +483,7 @@ const Website = () => {
               <img
                 src={viewWebsite.logo}
                 alt="logo"
-                className="h-12 w-12 object-cover"
+                className="h-16 w-16 object-cover"
               />
             </p>
             <p>

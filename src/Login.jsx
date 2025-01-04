@@ -18,10 +18,13 @@ const LoginPage = ({ onLogin }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false); // Loading state
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
+
+    setLoading(true); // Start loading
 
     try {
       // Authenticate user
@@ -70,6 +73,8 @@ const LoginPage = ({ onLogin }) => {
         autoClose: 3000,
         style: { backgroundColor: "rgb(153 27 27)", color: "white" },
       });
+    } finally {
+      setLoading(false); // Stop loading once the login attempt is complete
     }
   };
 
@@ -120,11 +125,20 @@ const LoginPage = ({ onLogin }) => {
             />
             <label className="text-sm text-gray-600">Show password</label>
           </div>
+
           <button
             type="submit"
             className="w-full bg-lime-800 text-white py-2 rounded-md hover:bg-lime-900 transition duration-200"
+            disabled={loading} // Disable the button while loading
           >
-            Login
+            {loading ? (
+              <div className="flex justify-center items-center">
+                <div className="animate-spin border-4 border-t-transparent border-lime-400 rounded-full w-5 h-5 mr-2"></div>
+                Logging in...
+              </div>
+            ) : (
+              "Login"
+            )}
           </button>
         </form>
         <footer className="text-center text-sm text-gray-500 mt-6">

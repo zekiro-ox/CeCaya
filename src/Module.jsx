@@ -9,6 +9,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./config/firebase";
 import { FaEdit, FaTrashAlt, FaEye } from "react-icons/fa";
+import axios from "axios";
 
 const Module = () => {
   const [modules, setModules] = useState([]);
@@ -29,7 +30,7 @@ const Module = () => {
   const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
   const currentModules = modules.slice(indexOfFirstRecord, indexOfLastRecord);
   const [subjectCodes, setSubjectCodes] = useState([]);
-  const [users, setUsers] = useState(["Alice", "Bob", "Charlie"]);
+  const [users, setUsers] = useState([""]);
 
   useEffect(() => {
     // Fetch subject codes from Firestore
@@ -38,8 +39,18 @@ const Module = () => {
       const codes = querySnapshot.docs.map((doc) => doc.id); // Extract document IDs
       setSubjectCodes(codes);
     };
+    // Fetch admin data from Firestore
+    const fetchAdmins = async () => {
+      const querySnapshot = await getDocs(collection(db, "admin"));
+      const adminData = querySnapshot.docs.map((doc) => {
+        const { firstName, lastName } = doc.data();
+        return `${firstName} ${lastName}`; // Combine first and last names
+      });
+      setUsers(adminData);
+    };
 
     fetchSubjectCodes();
+    fetchAdmins();
   }, []);
 
   useEffect(() => {
@@ -55,23 +66,54 @@ const Module = () => {
     setModules(moduleData);
   };
 
+  const uploadToCloudinary = async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", "cecaya_preset"); // Replace with your Cloudinary upload preset
+    formData.append("folder", "modules"); // Optional: specify a folder in Cloudinary
+
+    const response = await axios.post(
+      `https://api.cloudinary.com/v1_1/dqslazit0/auto/upload`, // Replace with your Cloudinary URL
+      formData
+    );
+
+    return response.data.secure_url; // Return the file's Cloudinary URL
+  };
+
   const handleAddModule = async (e) => {
     e.preventDefault();
-    const docRef = await addDoc(collection(db, "module"), {
-      subjectCode: formData.subjectCode,
-      moduleName: formData.moduleName,
-      moduleFile: formData.moduleFile,
-      uploader: formData.uploader,
-      dateUploaded: new Date().toISOString().split("T")[0],
-    });
 
-    setModules([...modules, { id: docRef.id, ...formData }]);
-    setFormData({
-      subjectCode: "",
-      moduleName: "",
-      moduleFile: null,
-      uploader: "",
-    });
+    try {
+      const fileUrl = await uploadToCloudinary(formData.moduleFile);
+
+      const docRef = await addDoc(collection(db, "module"), {
+        subjectCode: formData.subjectCode,
+        moduleName: formData.moduleName,
+        moduleFile: { name: formData.moduleFile.name, url: fileUrl }, // Store file URL here
+        uploader: formData.uploader,
+        dateUploaded: new Date().toISOString().split("T")[0],
+      });
+
+      setModules([
+        ...modules,
+        {
+          id: docRef.id,
+          subjectCode: formData.subjectCode,
+          moduleName: formData.moduleName,
+          moduleFile: { name: formData.moduleFile.name, url: fileUrl }, // Store file URL here
+          uploader: formData.uploader,
+        },
+      ]);
+
+      setFormData({
+        subjectCode: "",
+        moduleName: "",
+        moduleFile: null,
+        uploader: "",
+      });
+    } catch (error) {
+      console.error("Error uploading file or saving module:", error);
+    }
   };
 
   const handleEditRecord = (module) => {
@@ -79,7 +121,7 @@ const Module = () => {
     setFormData({
       subjectCode: module.subjectCode,
       moduleName: module.moduleName,
-      moduleFile: module.moduleFile,
+      moduleFile: module.moduleFile, // Store file URL and name (not the file object)
       uploader: module.uploader,
     });
   };
@@ -87,24 +129,50 @@ const Module = () => {
   const handleSaveChanges = async (e) => {
     e.preventDefault();
     const moduleRef = doc(db, "module", editingRecord);
-    await updateDoc(moduleRef, { ...formData });
 
-    setModules(
-      modules.map((module) =>
-        module.id === editingRecord
-          ? { id: editingRecord, ...formData }
-          : module
-      )
-    );
+    try {
+      let updatedModuleFile = formData.moduleFile;
 
-    setEditingRecord(null);
-    setFormData({
-      subjectCode: "",
-      moduleName: "",
-      moduleFile: null,
-      uploader: "",
-    });
+      // Check if a new file has been uploaded
+      if (formData.moduleFile instanceof File) {
+        const fileUrl = await uploadToCloudinary(formData.moduleFile);
+        updatedModuleFile = {
+          name: formData.moduleFile.name,
+          url: fileUrl,
+        };
+      }
+
+      const updatedData = {
+        subjectCode: formData.subjectCode,
+        moduleName: formData.moduleName,
+        moduleFile: updatedModuleFile, // Ensure we store metadata, not the File object
+        uploader: formData.uploader,
+      };
+
+      // Update Firestore document
+      await updateDoc(moduleRef, updatedData);
+
+      // Update state
+      setModules(
+        modules.map((module) =>
+          module.id === editingRecord
+            ? { id: editingRecord, ...updatedData }
+            : module
+        )
+      );
+
+      setEditingRecord(null);
+      setFormData({
+        subjectCode: "",
+        moduleName: "",
+        moduleFile: null,
+        uploader: "",
+      });
+    } catch (error) {
+      console.error("Error saving changes:", error);
+    }
   };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
@@ -119,7 +187,7 @@ const Module = () => {
     const file = e.target.files[0];
     setFormData({
       ...formData,
-      moduleFile: { name: file.name, url: URL.createObjectURL(file) },
+      moduleFile: file, // Store the raw file for upload
     });
   };
 
@@ -310,12 +378,26 @@ const Module = () => {
             <label className="block text-sm font-medium text-gray-700">
               Module File
             </label>
+            {editingRecord && formData.moduleFile ? (
+              <div className="mt-2 mb-2">
+                <a
+                  href={formData.moduleFile.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  {formData.moduleFile.name}
+                </a>
+                <p className="text-sm text-gray-500">
+                  (Current file - upload a new one if you wish to replace it)
+                </p>
+              </div>
+            ) : null}
             <input
               type="file"
               accept=".doc,.docx,.ppt,.pptx,.pdf"
               onChange={handleFileUpload}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
-              required
             />
           </div>
           <div>
