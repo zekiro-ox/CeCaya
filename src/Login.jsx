@@ -1,54 +1,104 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth, db } from "./config/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import {
-  doc,
-  getDoc,
-  collection,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import Logo from "./assets/CCECAYALOGO.png";
 import { ToastContainer, toast } from "react-toastify";
+import ReCAPTCHA from "react-google-recaptcha"; // Import ReCAPTCHA component
 import "react-toastify/dist/ReactToastify.css";
 
 const LoginPage = ({ onLogin }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false); // Loading state
+  const [loading, setLoading] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutTime, setLockoutTime] = useState(null);
+  const [remainingTime, setRemainingTime] = useState(null);
+  const [captchaVerified, setCaptchaVerified] = useState(false); // CAPTCHA state
   const navigate = useNavigate();
+
+  // Load lockout time from local storage on component mount
+  useEffect(() => {
+    const savedLockoutTime = localStorage.getItem("lockoutTime");
+    if (savedLockoutTime) {
+      setLockoutTime(Number(savedLockoutTime));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (lockoutTime && Date.now() < lockoutTime) {
+      const interval = setInterval(() => {
+        const timeLeft = lockoutTime - Date.now();
+        if (timeLeft <= 0) {
+          setLockoutTime(null);
+          setRemainingTime(null);
+          localStorage.removeItem("lockoutTime");
+          clearInterval(interval);
+        } else {
+          setRemainingTime(Math.ceil(timeLeft / 1000)); // Convert milliseconds to seconds
+        }
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [lockoutTime]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    setLoading(true); // Start loading
+    // Check if user is locked out
+    if (lockoutTime && Date.now() < lockoutTime) {
+      const remainingTime = Math.ceil((lockoutTime - Date.now()) / 60000);
+      toast.error(
+        `Account locked. Please try again after ${remainingTime} minutes.`,
+        {
+          position: "top-right",
+          autoClose: 3000,
+          style: { backgroundColor: "rgb(153 27 27)", color: "white" },
+        }
+      );
+      return;
+    }
+
+    // Require CAPTCHA verification after 3 failed attempts
+    if (failedAttempts >= 3 && !captchaVerified) {
+      toast.error("Please verify the CAPTCHA before logging in.", {
+        position: "top-right",
+        autoClose: 3000,
+        style: { backgroundColor: "rgb(153 27 27)", color: "white" },
+      });
+      return;
+    }
+
+    setLoading(true);
 
     try {
       // Authenticate user
       const userCredential = await signInWithEmailAndPassword(
         auth,
-        username, // Firebase expects email as the username
+        username,
         password
       );
 
       const user = userCredential.user;
 
-      // Fetch the superAdmin document
-      const superAdminRef = doc(db, "superAdmin", "1001");
-      const superAdminSnap = await getDoc(superAdminRef);
-      const isSuperAdmin =
-        superAdminSnap.exists() && superAdminSnap.data().uid === user.uid;
+      // Reset failed attempts and lockout state on successful login
+      setFailedAttempts(0);
+      setLockoutTime(null);
+      localStorage.removeItem("lockoutTime");
 
-      // Query the admin collection for a matching uid
-      const adminRef = collection(db, "admin");
-      const adminQuery = query(adminRef, where("uid", "==", user.uid));
-      const adminSnap = await getDocs(adminQuery);
-      const isAdmin = !adminSnap.empty; // If any document matches, `isAdmin` is true
+      // Query the superAdmin collection for a matching UID
+      const superAdminRef = collection(db, "superAdmin");
+      const superAdminQuery = query(
+        superAdminRef,
+        where("uid", "==", user.uid)
+      );
+      const superAdminSnap = await getDocs(superAdminQuery);
+      const isSuperAdmin = !superAdminSnap.empty;
 
-      if (isSuperAdmin || isAdmin) {
+      if (isSuperAdmin) {
         toast.success("Login successful!", {
           position: "top-right",
           autoClose: 3000,
@@ -65,16 +115,46 @@ const LoginPage = ({ onLogin }) => {
           autoClose: 3000,
           style: { backgroundColor: "rgb(153 27 27)", color: "white" },
         });
-        auth.signOut(); // Sign out unauthorized users
+        auth.signOut();
       }
     } catch (error) {
-      toast.error(error.message, {
+      setFailedAttempts((prev) => prev + 1);
+
+      // Lockout user after 3 failed attempts
+      if (failedAttempts + 1 >= 3) {
+        const lockTime = Date.now() + 10 * 60 * 1000; // Lockout for 10 minutes
+        setLockoutTime(lockTime);
+        localStorage.setItem("lockoutTime", lockTime);
+        setFailedAttempts(0); // Reset failed attempts
+        toast.error(
+          "Too many failed attempts. You are locked out for 10 minutes.",
+          {
+            position: "top-right",
+            autoClose: 3000,
+            style: { backgroundColor: "rgb(153 27 27)", color: "white" },
+          }
+        );
+      } else {
+        toast.error("Invalid credentials. Please try again.", {
+          position: "top-right",
+          autoClose: 3000,
+          style: { backgroundColor: "rgb(153 27 27)", color: "white" },
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // CAPTCHA verification handler
+  const handleCaptchaVerify = (value) => {
+    if (value) {
+      setCaptchaVerified(true);
+      toast.success("CAPTCHA verified!", {
         position: "top-right",
         autoClose: 3000,
-        style: { backgroundColor: "rgb(153 27 27)", color: "white" },
+        style: { backgroundColor: "rgb(63 98 18)", color: "white" },
       });
-    } finally {
-      setLoading(false); // Stop loading once the login attempt is complete
     }
   };
 
@@ -125,13 +205,26 @@ const LoginPage = ({ onLogin }) => {
             />
             <label className="text-sm text-gray-600">Show password</label>
           </div>
-
+          {lockoutTime && Date.now() < lockoutTime && (
+            <div className="mb-4 text-red-500 text-sm">
+              Account locked. Please try again after{" "}
+              {Math.ceil((lockoutTime - Date.now()) / 60000)} minutes.
+            </div>
+          )}
+          {failedAttempts >= 3 && (
+            <ReCAPTCHA
+              sitekey="6LdOvLAqAAAAAAR158NGCeeHPJQGe4jElBvbLe2B" // Replace with your site key
+              onChange={handleCaptchaVerify}
+            />
+          )}
           <button
             type="submit"
             className="w-full bg-lime-800 text-white py-2 rounded-md hover:bg-lime-900 transition duration-200"
-            disabled={loading} // Disable the button while loading
+            disabled={loading || (lockoutTime && Date.now() < lockoutTime)} // Disable button if locked out
           >
-            {loading ? (
+            {lockoutTime && Date.now() < lockoutTime ? (
+              <div>Locked out for {remainingTime} seconds</div>
+            ) : loading ? (
               <div className="flex justify-center items-center">
                 <div className="animate-spin border-4 border-t-transparent border-lime-400 rounded-full w-5 h-5 mr-2"></div>
                 Logging in...

@@ -32,6 +32,7 @@ const User = () => {
 
   const [viewUser, setViewUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [filter, setFilter] = useState("All"); // Added filter state
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -40,12 +41,12 @@ const User = () => {
 
   const [institutes, setInstitutes] = useState([]); // To store institute data
   const [filteredCourses, setFilteredCourses] = useState([]);
-  const userTypes = ["Admin", "Professor"];
+  const userTypes = ["Student", "Professor"];
   const statusOptions = ["Approved", "Not Approved"];
   const institutesCollectionRef = collection(db, "institutes");
 
   // References to Firestore collections
-  const adminCollectionRef = collection(db, "admin");
+  const studentCollectionRef = collection(db, "student");
   const professorCollectionRef = collection(db, "professor");
   const countersCollectionRef = collection(db, "counters");
 
@@ -53,9 +54,9 @@ const User = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        // Fetch Admin Users
-        const adminSnapshot = await getDocs(adminCollectionRef);
-        const adminUsers = adminSnapshot.docs.map((doc) => ({
+        // Fetch Student Users
+        const studentSnapshot = await getDocs(studentCollectionRef);
+        const studentUsers = studentSnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
@@ -67,8 +68,8 @@ const User = () => {
           ...doc.data(),
         }));
 
-        // Combine both Admin and Professor users
-        setUsers([...adminUsers, ...professorUsers]);
+        // Combine both Student and Professor users
+        setUsers([...studentUsers, ...professorUsers]);
       } catch (error) {
         console.error("Error fetching users:", error);
         alert("Failed to fetch users.");
@@ -150,11 +151,11 @@ const User = () => {
 
       // Determine collection based on user type
       const userCollection =
-        formData.userType === "Admin"
-          ? adminCollectionRef
+        formData.userType === "Student"
+          ? studentCollectionRef
           : professorCollectionRef;
 
-      // Generate formatted ID (A0001 or P0001)
+      // Generate formatted ID (S0001 or P0001)
       const formattedId = await generateFormattedId(formData.userType);
 
       // Save user data to Firestore with formatted ID
@@ -194,7 +195,7 @@ const User = () => {
   };
   // Function to generate formatted ID
   const generateFormattedId = async (userType) => {
-    const counterDocId = userType === "Admin" ? "admin" : "professor";
+    const counterDocId = userType === "Student" ? "student" : "professor";
 
     try {
       const newId = await runTransaction(db, async (transaction) => {
@@ -210,7 +211,7 @@ const User = () => {
         transaction.update(counterDocRef, { lastId: updatedId });
 
         // Format ID with prefix and leading zeros
-        const prefix = userType === "Admin" ? "A" : "P";
+        const prefix = userType === "Student" ? "S" : "P";
         const formattedId = `${prefix}${updatedId.toString().padStart(4, "0")}`;
         return formattedId;
       });
@@ -270,7 +271,7 @@ const User = () => {
       // Determine collection based on user type
       const userType = formData.userType;
       const userCollection =
-        userType === "Admin" ? adminCollectionRef : professorCollectionRef;
+        userType === "Student" ? studentCollectionRef : professorCollectionRef;
 
       // Update user data in Firestore
       await updateDoc(doc(db, userCollection.path, editingRecord), {
@@ -315,7 +316,7 @@ const User = () => {
   const handleRemoveUser = async (user) => {
     const currentUser = auth.currentUser; // Get the logged-in user from Firebase Authentication
 
-    // Prevent admin from deleting their own account
+    // Prevent student from deleting their own account
     if (currentUser && currentUser.uid === user.uid) {
       alert("You cannot delete your own account.");
       return; // Exit the function if the user is trying to delete their own account
@@ -329,8 +330,8 @@ const User = () => {
       try {
         // Determine collection based on user type
         const userCollection =
-          user.userType === "Admin"
-            ? adminCollectionRef
+          user.userType === "Student"
+            ? studentCollectionRef
             : professorCollectionRef;
 
         // Delete user from Firestore
@@ -374,7 +375,17 @@ const User = () => {
     setCurrentPage(1); // Reset to the first page when changing records per page
   };
 
-  const currentUsers = users.slice(
+  const handleFilterChange = (filterType) => {
+    setFilter(filterType);
+  };
+
+  // Filter users based on the selected filter
+  const filteredUsers = users.filter((user) => {
+    if (filter === "All") return true;
+    return user.userType === filter;
+  });
+
+  const currentUsers = filteredUsers.slice(
     (currentPage - 1) * recordsPerPage,
     currentPage * recordsPerPage
   );
@@ -387,6 +398,34 @@ const User = () => {
           <h1 className="text-xl lg:text-2xl font-bold text-gray-800">
             User Management
           </h1>
+          <div className="flex gap-4">
+            <button
+              className={`px-4 py-2 rounded ${
+                filter === "Student" ? "bg-lime-800 text-white" : "bg-gray-200"
+              }`}
+              onClick={() => handleFilterChange("Student")}
+            >
+              Student
+            </button>
+            <button
+              className={`px-4 py-2 rounded ${
+                filter === "Professor"
+                  ? "bg-lime-800 text-white"
+                  : "bg-gray-200"
+              }`}
+              onClick={() => handleFilterChange("Professor")}
+            >
+              Professor
+            </button>
+            <button
+              className={`px-4 py-2 rounded ${
+                filter === "All" ? "bg-lime-800 text-white" : "bg-gray-200"
+              }`}
+              onClick={() => handleFilterChange("All")}
+            >
+              All
+            </button>
+          </div>
         </header>
         <table className="w-full border-collapse border border-gray-200">
           <thead className="bg-gray-100">

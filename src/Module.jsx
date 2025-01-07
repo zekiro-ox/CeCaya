@@ -19,6 +19,7 @@ const Module = () => {
     moduleName: "",
     moduleFile: null,
     uploader: "",
+    description: "",
   });
 
   const [viewModule, setViewModule] = useState(null);
@@ -41,7 +42,7 @@ const Module = () => {
     };
     // Fetch admin data from Firestore
     const fetchAdmins = async () => {
-      const querySnapshot = await getDocs(collection(db, "admin"));
+      const querySnapshot = await getDocs(collection(db, "professor"));
       const adminData = querySnapshot.docs.map((doc) => {
         const { firstName, lastName } = doc.data();
         return `${firstName} ${lastName}`; // Combine first and last names
@@ -89,8 +90,9 @@ const Module = () => {
       const docRef = await addDoc(collection(db, "module"), {
         subjectCode: formData.subjectCode,
         moduleName: formData.moduleName,
-        moduleFile: { name: formData.moduleFile.name, url: fileUrl }, // Store file URL here
+        moduleFile: { name: formData.moduleFile.name, url: fileUrl },
         uploader: formData.uploader,
+        description: formData.description, // Save description
         dateUploaded: new Date().toISOString().split("T")[0],
       });
 
@@ -123,6 +125,7 @@ const Module = () => {
       moduleName: module.moduleName,
       moduleFile: module.moduleFile, // Store file URL and name (not the file object)
       uploader: module.uploader,
+      description: module.description,
     });
   };
 
@@ -145,8 +148,9 @@ const Module = () => {
       const updatedData = {
         subjectCode: formData.subjectCode,
         moduleName: formData.moduleName,
-        moduleFile: updatedModuleFile, // Ensure we store metadata, not the File object
+        moduleFile: updatedModuleFile,
         uploader: formData.uploader,
+        description: formData.description, // Save updated description
       };
 
       // Update Firestore document
@@ -167,6 +171,7 @@ const Module = () => {
         moduleName: "",
         moduleFile: null,
         uploader: "",
+        description: "",
       });
     } catch (error) {
       console.error("Error saving changes:", error);
@@ -402,6 +407,20 @@ const Module = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
+              Module Description
+            </label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleInputChange}
+              placeholder="Enter a description for the module"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              rows={4}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
               Module Uploader
             </label>
             <select
@@ -462,6 +481,10 @@ const Module = () => {
                 {viewModule.moduleFile.name}
               </a>
             </p>
+            <p>
+              <strong>Description:</strong> {viewModule.description}
+            </p>
+
             <p>
               <strong>Uploader:</strong> {viewModule.uploader}
             </p>

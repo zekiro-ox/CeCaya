@@ -18,7 +18,7 @@ const Dashboard = () => {
   useEffect(() => {
     // Fetch total users from 'admin' and 'professor' collections
     const fetchUsers = async () => {
-      const adminSnapshot = await getDocs(collection(db, "admin"));
+      const adminSnapshot = await getDocs(collection(db, "student"));
       const professorSnapshot = await getDocs(collection(db, "professor"));
       setTotalUsers(adminSnapshot.size + professorSnapshot.size);
     };

@@ -20,7 +20,10 @@ const Website = () => {
     status: "",
     institute: "",
     course: "",
+    description: "",
+    uploader: "", // Add description field
   });
+
   const [editingRecord, setEditingRecord] = useState(null);
   const [viewWebsite, setViewWebsite] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -29,6 +32,7 @@ const Website = () => {
   const totalRecords = websites.length;
 
   const [institutesData, setInstitutesData] = useState([]);
+  const [professors, setProfessors] = useState([]);
   const [courses, setCourses] = useState([]);
 
   const websitesRef = collection(db, "website");
@@ -37,10 +41,12 @@ const Website = () => {
   // Fetch websites from Firestore
   useEffect(() => {
     const fetchData = async () => {
-      const [websitesSnapshot, institutesSnapshot] = await Promise.all([
-        getDocs(websitesRef),
-        getDocs(institutesRef),
-      ]);
+      const [websitesSnapshot, institutesSnapshot, professorsSnapshot] =
+        await Promise.all([
+          getDocs(websitesRef),
+          getDocs(institutesRef),
+          getDocs(collection(db, "professor")),
+        ]);
 
       // Map websites data
       const websitesData = websitesSnapshot.docs.map((doc) => ({
@@ -56,6 +62,13 @@ const Website = () => {
         courses: doc.data().courses,
       }));
       setInstitutesData(institutesData);
+      // Map professors data
+      const professorsData = professorsSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        firstName: doc.data().firstName,
+        lastName: doc.data().lastName,
+      }));
+      setProfessors(professorsData);
     };
 
     fetchData();
@@ -85,6 +98,8 @@ const Website = () => {
       status: "",
       institute: "",
       course: "",
+      description: "",
+      uploader: "", // Reset description
     });
   };
 
@@ -109,6 +124,8 @@ const Website = () => {
       status: "",
       institute: "",
       course: "",
+      description: "",
+      uploader: "", // Reset description
     });
   };
 
@@ -176,6 +193,8 @@ const Website = () => {
       status: website.status || "",
       institute: website.institute || "",
       course: website.course || "",
+      description: website.description || "",
+      uploader: website.uploader || "", // Set description
     });
   };
 
@@ -443,6 +462,44 @@ const Website = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
+              Description
+            </label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleInputChange}
+              placeholder="Enter a description for the website"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              rows={4}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Uploader
+            </label>
+            <select
+              name="uploader"
+              value={formData.uploader}
+              onChange={handleInputChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              required
+            >
+              <option value="" disabled>
+                Select Uploader
+              </option>
+              {professors.map((professor) => (
+                <option
+                  key={professor.id}
+                  value={`${professor.firstName} ${professor.lastName}`}
+                >
+                  {professor.firstName} {professor.lastName}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
               Status
             </label>
             <select
@@ -499,6 +556,12 @@ const Website = () => {
               >
                 {viewWebsite.websiteLink}
               </a>
+            </p>
+            <p>
+              <strong>Description:</strong> {viewWebsite.description}
+            </p>
+            <p>
+              <strong>Uploader:</strong> {viewWebsite.uploader}
             </p>
             <p>
               <strong>Status:</strong> {viewWebsite.status}

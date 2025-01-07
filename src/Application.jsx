@@ -22,16 +22,18 @@ const Application = () => {
     status: "",
     institute: "",
     course: "",
+    description: "",
+    uploader: "", // New field
   });
+
   const [viewApplication, setViewApplication] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage, setRecordsPerPage] = useState(5);
+  const [professors, setProfessors] = useState([]);
   const totalRecords = applications.length;
-
-  // Fetch institutes and applications
   useEffect(() => {
     const fetchInstitutes = async () => {
       try {
@@ -46,6 +48,27 @@ const Application = () => {
       }
     };
 
+    fetchInstitutes();
+  }, []);
+
+  useEffect(() => {
+    const fetchProfessors = async () => {
+      try {
+        const professorSnapshot = await getDocs(collection(db, "professor"));
+        const professorList = professorSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setProfessors(professorList);
+      } catch (error) {
+        console.error("Error fetching professors:", error);
+      }
+    };
+
+    fetchProfessors();
+  }, []);
+
+  useEffect(() => {
     const fetchApplications = async () => {
       try {
         const querySnapshot = await getDocs(collection(db, "applications"));
@@ -59,7 +82,6 @@ const Application = () => {
       }
     };
 
-    fetchInstitutes();
     fetchApplications();
   }, []);
 
@@ -74,6 +96,8 @@ const Application = () => {
         status: "",
         institute: "",
         course: "",
+        description: "",
+        uploader: "",
       });
     } catch (error) {
       console.error("Error adding application:", error);
@@ -113,6 +137,8 @@ const Application = () => {
         status: "",
         institute: "",
         course: "",
+        description: "",
+        uploader: "",
       });
     } catch (error) {
       console.error("Error saving changes:", error);
@@ -382,13 +408,64 @@ const Application = () => {
             <label className="block text-sm font-medium text-gray-700">
               Application Logo
             </label>
+            {editingRecord && formData.logo && (
+              <div className="mb-2">
+                <img
+                  src={formData.logo}
+                  alt="Current logo"
+                  className="h-16 w-16 object-cover mb-2"
+                />
+                <p className="text-sm text-gray-500">
+                  (Current logo - upload a new one if you wish to replace it.)
+                </p>
+              </div>
+            )}
             <input
               type="file"
               accept=".png,.jpg,.jpeg"
               onChange={handleFileUpload}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-l ime-800 focus:ring-lime-800 sm:text-sm p-2"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              required={!editingRecord} // Only required when adding a new application
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Description
+            </label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleInputChange}
+              placeholder="Enter a description for the application"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              rows={4}
               required
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Uploader
+            </label>
+            <select
+              name="uploader"
+              value={formData.uploader}
+              onChange={handleInputChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              required
+            >
+              <option value="" disabled>
+                Select Uploader
+              </option>
+              {professors.map((professor) => (
+                <option
+                  key={professor.id}
+                  value={`${professor.firstName} ${professor.lastName}`}
+                >
+                  {professor.firstName} {professor.lastName}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
@@ -439,6 +516,13 @@ const Application = () => {
               <strong>Application Name:</strong>{" "}
               {viewApplication.applicationName}
             </p>
+            <p>
+              <strong>Description:</strong> {viewApplication.description}
+            </p>
+            <p>
+              <strong>Uploader:</strong> {viewApplication.uploader}
+            </p>
+
             <p>
               <strong>Status:</strong> {viewApplication.status}
             </p>
