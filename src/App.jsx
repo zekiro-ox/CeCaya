@@ -15,6 +15,8 @@ import Module from "./Module";
 import Application from "./Application";
 import Website from "./Website";
 import User from "./Users";
+import ProfessorDashboard from "./ProfessorDashboard";
+import StudentDashboard from "./StudentDashboard";
 
 function ProtectedLayout({ onLogout }) {
   const [isSidebarHidden, setIsSidebarHidden] = useState(false);
@@ -70,24 +72,53 @@ function ProtectedLayout({ onLogout }) {
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userRole, setUserRole] = useState(null); // Track user role
 
-  const handleLogin = () => {
+  const handleLogin = (role) => {
     setIsAuthenticated(true);
+    setUserRole(role); // Set the role (e.g., "superadmin" or "professor")
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
+    setUserRole(null); // Reset role on logout
   };
 
   return (
     <Router>
       <Routes>
+        {/* Login Page */}
         <Route path="/" element={<LoginPage onLogin={handleLogin} />} />
+
+        {/* Superadmin Protected Layout */}
         <Route
           path="/*"
           element={
-            isAuthenticated ? (
+            isAuthenticated && userRole === "superadmin" ? (
               <ProtectedLayout onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/" />
+            )
+          }
+        />
+
+        {/* Professor Protected Layout */}
+        <Route
+          path="/professor-dashboard"
+          element={
+            isAuthenticated && userRole === "professor" ? (
+              <ProfessorDashboard />
+            ) : (
+              <Navigate to="/" />
+            )
+          }
+        />
+
+        <Route
+          path="/student-dashboard"
+          element={
+            isAuthenticated && userRole === "student" ? (
+              <StudentDashboard />
             ) : (
               <Navigate to="/" />
             )

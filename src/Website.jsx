@@ -296,7 +296,7 @@ const Website = () => {
                     <FaEdit />
                   </button>
                   <button
-                    onClick={() => handleRemoveWebsite(index)}
+                    onClick={() => handleRemoveWebsite(website.id)}
                     className="bg-red-800 text-white p-2 rounded hover:bg-red-900 flex items-center"
                   >
                     <FaTrashAlt />

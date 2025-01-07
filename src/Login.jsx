@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth, db } from "./config/firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  sendEmailVerification,
+} from "firebase/auth";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import Logo from "./assets/CCECAYALOGO.png";
 import { ToastContainer, toast } from "react-toastify";
@@ -48,7 +51,6 @@ const LoginPage = ({ onLogin }) => {
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    // Check if user is locked out
     if (lockoutTime && Date.now() < lockoutTime) {
       const remainingTime = Math.ceil((lockoutTime - Date.now()) / 60000);
       toast.error(
@@ -62,7 +64,6 @@ const LoginPage = ({ onLogin }) => {
       return;
     }
 
-    // Require CAPTCHA verification after 3 failed attempts
     if (failedAttempts >= 3 && !captchaVerified) {
       toast.error("Please verify the CAPTCHA before logging in.", {
         position: "top-right",
@@ -84,48 +85,98 @@ const LoginPage = ({ onLogin }) => {
 
       const user = userCredential.user;
 
-      // Reset failed attempts and lockout state on successful login
-      setFailedAttempts(0);
-      setLockoutTime(null);
-      localStorage.removeItem("lockoutTime");
-
-      // Query the superAdmin collection for a matching UID
+      // Check if the user is a superAdmin first
       const superAdminRef = collection(db, "superAdmin");
       const superAdminQuery = query(
         superAdminRef,
         where("uid", "==", user.uid)
       );
       const superAdminSnap = await getDocs(superAdminQuery);
-      const isSuperAdmin = !superAdminSnap.empty;
 
-      if (isSuperAdmin) {
-        toast.success("Login successful!", {
+      if (!superAdminSnap.empty) {
+        // SuperAdmin can log in without email verification
+        toast.success("Super Admin Login Successful!", {
           position: "top-right",
           autoClose: 3000,
           style: { backgroundColor: "rgb(63 98 18)", color: "white" },
         });
 
-        onLogin();
+        onLogin("superadmin");
         setTimeout(() => {
           navigate("/dashboard");
         }, 3000);
-      } else {
-        toast.error("Unauthorized access!", {
+        return;
+      }
+
+      // If the user is not a superAdmin, enforce email verification for professor/student
+      if (!user.emailVerified) {
+        await sendEmailVerification(user);
+        toast.warn(
+          "A verification email has been sent to your email address. Please verify before logging in.",
+          {
+            position: "top-right",
+            autoClose: 5000,
+            style: { backgroundColor: "rgb(202 138 4)", color: "white" },
+          }
+        );
+        auth.signOut(); // Sign out unverified user
+        setLoading(false);
+        return;
+      }
+
+      // Check if the user is a professor
+      const professorRef = collection(db, "professor");
+      const professorQuery = query(professorRef, where("uid", "==", user.uid));
+      const professorSnap = await getDocs(professorQuery);
+
+      if (!professorSnap.empty) {
+        toast.success("Professor Login Successful!", {
           position: "top-right",
           autoClose: 3000,
-          style: { backgroundColor: "rgb(153 27 27)", color: "white" },
+          style: { backgroundColor: "rgb(63 98 18)", color: "white" },
         });
-        auth.signOut();
+
+        onLogin("professor");
+        setTimeout(() => {
+          navigate("/professor-dashboard");
+        }, 3000);
+        return;
       }
+
+      // Check if the user is a student
+      const studentRef = collection(db, "student");
+      const studentQuery = query(studentRef, where("uid", "==", user.uid));
+      const studentSnap = await getDocs(studentQuery);
+
+      if (!studentSnap.empty) {
+        toast.success("Student Login Successful!", {
+          position: "top-right",
+          autoClose: 3000,
+          style: { backgroundColor: "rgb(63 98 18)", color: "white" },
+        });
+
+        onLogin("student");
+        setTimeout(() => {
+          navigate("/student-dashboard");
+        }, 3000);
+        return;
+      }
+
+      // Unauthorized user
+      toast.error("Unauthorized access!", {
+        position: "top-right",
+        autoClose: 3000,
+        style: { backgroundColor: "rgb(153 27 27)", color: "white" },
+      });
+      auth.signOut();
     } catch (error) {
       setFailedAttempts((prev) => prev + 1);
 
-      // Lockout user after 3 failed attempts
       if (failedAttempts + 1 >= 3) {
         const lockTime = Date.now() + 10 * 60 * 1000; // Lockout for 10 minutes
         setLockoutTime(lockTime);
         localStorage.setItem("lockoutTime", lockTime);
-        setFailedAttempts(0); // Reset failed attempts
+        setFailedAttempts(0);
         toast.error(
           "Too many failed attempts. You are locked out for 10 minutes.",
           {
