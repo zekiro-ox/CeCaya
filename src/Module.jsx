@@ -111,6 +111,7 @@ const Module = () => {
         subjectCode: "",
         moduleName: "",
         moduleFile: null,
+        description: "",
         uploader: "",
       });
     } catch (error) {
