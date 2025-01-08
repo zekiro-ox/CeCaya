@@ -1,8 +1,12 @@
 // src/components/User.jsx
 import React, { useState, useEffect } from "react";
-import { FaEdit, FaTrashAlt, FaEye } from "react-icons/fa";
+import { FaEdit, FaTrashAlt, FaEye, FaEyeSlash } from "react-icons/fa";
+import { MdLockReset } from "react-icons/md";
 import { auth, db } from "./config/firebase"; // Import Firebase config
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+} from "firebase/auth";
 import {
   collection,
   getDocs,
@@ -41,11 +45,11 @@ const User = () => {
 
   const [institutes, setInstitutes] = useState([]); // To store institute data
   const [filteredCourses, setFilteredCourses] = useState([]);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const userTypes = ["Student", "Professor"];
   const statusOptions = ["Approved", "Not Approved"];
   const institutesCollectionRef = collection(db, "institutes");
-
-  // References to Firestore collections
   const studentCollectionRef = collection(db, "student");
   const professorCollectionRef = collection(db, "professor");
   const countersCollectionRef = collection(db, "counters");
@@ -351,11 +355,25 @@ const User = () => {
     }
   };
 
+  const handleResetPassword = async (userEmail) => {
+    try {
+      await sendPasswordResetEmail(auth, userEmail);
+      alert(`Password reset email sent to ${userEmail}`);
+    } catch (error) {
+      console.error("Error sending password reset email:", error.message);
+      alert("Failed to send password reset email. Please try again.");
+    }
+  };
+
   // Handle viewing a user's details
   const handleViewUser = (user) => {
     setViewUser(user);
     setShowModal(true);
   };
+
+  const togglePasswordVisibility = () => setShowPassword(!showPassword);
+  const toggleConfirmPasswordVisibility = () =>
+    setShowConfirmPassword(!showConfirmPassword);
 
   // Pagination Logic
   const handleNextPage = () => {
@@ -462,7 +480,7 @@ const User = () => {
                 </td>
                 <td className="border border-gray-200 px-4 py-2 flex space-x-2">
                   <button
-                    className="text-white bg-lime-800 p-2 rounded hover:bg-lime-900 flex items-center"
+                    className="text-white bg-yellow-800 p-2 rounded hover:bg-yellow-900 flex items-center"
                     onClick={() => handleViewUser(user)}
                   >
                     <FaEye />
@@ -472,6 +490,12 @@ const User = () => {
                     onClick={() => handleEditRecord(user)}
                   >
                     <FaEdit />
+                  </button>
+                  <button
+                    onClick={() => handleResetPassword(user.email)}
+                    className="bg-blue-800 text-white p-2 rounded hover:bg-blue-900 flex items-center"
+                  >
+                    <MdLockReset />
                   </button>
                   <button
                     onClick={() => handleRemoveUser(user)}
@@ -601,12 +625,12 @@ const User = () => {
           </div>
 
           {/* Password */}
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-gray-700">
               Password
             </label>
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               name="password"
               value={formData.password}
               onChange={handleInputChange}
@@ -615,15 +639,22 @@ const User = () => {
               required={!editingRecord} // Required only if adding
               disabled={editingRecord !== null} // Disable if editing
             />
+            <button
+              type="button"
+              onClick={togglePasswordVisibility}
+              className="absolute inset-y-0 right-0 pr-3 pt-5 flex items-center text-gray-500"
+            >
+              {showPassword ? <FaEyeSlash /> : <FaEye />}
+            </button>
           </div>
 
           {/* Confirm Password */}
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-gray-700">
               Confirm Password
             </label>
             <input
-              type="password"
+              type={showConfirmPassword ? "text" : "password"}
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleInputChange}
@@ -632,6 +663,13 @@ const User = () => {
               required={!editingRecord} // Required only if adding
               disabled={editingRecord !== null} // Disable if editing
             />
+            <button
+              type="button"
+              onClick={toggleConfirmPasswordVisibility}
+              className="absolute inset-y-0 right-0 pr-3 pt-5 flex items-center text-gray-500"
+            >
+              {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+            </button>
           </div>
 
           {/* User Type */}

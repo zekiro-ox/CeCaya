@@ -284,7 +284,7 @@ const Website = () => {
                 </td>
                 <td className="border border-gray-200 px-4 py-2 flex space-x-2">
                   <button
-                    className="text-white bg-lime-800 p-2 rounded hover:bg-lime-900 flex items-center"
+                    className="text-white bg-yellow-800 p-2 rounded hover:bg-yellow-900 flex items-center"
                     onClick={() => handleViewWebsite(website)}
                   >
                     <FaEye />
