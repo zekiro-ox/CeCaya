@@ -10,6 +10,34 @@ import {
 import { db } from "./config/firebase";
 import { FaEdit, FaTrashAlt, FaEye } from "react-icons/fa";
 import axios from "axios";
+import { ToastContainer, toast } from "react-toastify"; // Import Toastify
+import "react-toastify/dist/ReactToastify.css";
+
+const Modal = ({ isOpen, message, onClose, onConfirm }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gray-500 bg-opacity-50 flex justify-center items-center">
+      <div className="bg-white p-6 rounded shadow-md w-1/3">
+        <h2 className="text-xl font-semibold text-gray-800">{message}</h2>
+        <div className="mt-4 flex justify-between space-x-4">
+          <button
+            onClick={onClose}
+            className="bg-gray-300 text-gray-700 px-4 py-2 rounded"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="bg-red-800 text-white px-4 py-2 rounded"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const Module = () => {
   const [modules, setModules] = useState([]);
@@ -32,6 +60,10 @@ const Module = () => {
   const currentModules = modules.slice(indexOfFirstRecord, indexOfLastRecord);
   const [subjectCodes, setSubjectCodes] = useState([]);
   const [users, setUsers] = useState([""]);
+  const [fileSizeError, setFileSizeError] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalAction, setModalAction] = useState("");
+  const [moduleToDelete, setModuleToDelete] = useState(null);
 
   useEffect(() => {
     // Fetch subject codes from Firestore
@@ -114,8 +146,10 @@ const Module = () => {
         description: "",
         uploader: "",
       });
+      showToast("Module added successfully!", "success");
     } catch (error) {
       console.error("Error uploading file or saving module:", error);
+      showToast("Error adding module.", "error");
     }
   };
 
@@ -132,18 +166,20 @@ const Module = () => {
 
   const handleSaveChanges = async (e) => {
     e.preventDefault();
+    setModalAction("save"); // Set modal action to save
+    setIsModalOpen(true); // Open the modal
+  };
+
+  const handleSaveChangesConfirmation = async () => {
     const moduleRef = doc(db, "module", editingRecord);
 
     try {
       let updatedModuleFile = formData.moduleFile;
 
-      // Check if a new file has been uploaded
+      // Handle file upload only if a new file is provided
       if (formData.moduleFile instanceof File) {
         const fileUrl = await uploadToCloudinary(formData.moduleFile);
-        updatedModuleFile = {
-          name: formData.moduleFile.name,
-          url: fileUrl,
-        };
+        updatedModuleFile = { name: formData.moduleFile.name, url: fileUrl };
       }
 
       const updatedData = {
@@ -151,7 +187,7 @@ const Module = () => {
         moduleName: formData.moduleName,
         moduleFile: updatedModuleFile,
         uploader: formData.uploader,
-        description: formData.description, // Save updated description
+        description: formData.description,
       };
 
       // Update Firestore document
@@ -174,8 +210,35 @@ const Module = () => {
         uploader: "",
         description: "",
       });
+      setIsModalOpen(false); // Close the modal
+      showToast("Updated successfully!", "success");
     } catch (error) {
       console.error("Error saving changes:", error);
+      showToast("Error saving changes.", "error");
+    }
+  };
+
+  const handleDeleteConfirmation = (module) => {
+    setModuleToDelete(module); // Set module to be deleted
+    setModalAction("delete"); // Set modal action to delete
+    setIsModalOpen(true); // Open the modal
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false); // Close the modal
+  };
+
+  const showToast = (message, type) => {
+    if (type === "success") {
+      toast.success(message, {
+        position: "top-right",
+        autoClose: 3000,
+      });
+    } else if (type === "error") {
+      toast.error(message, {
+        position: "top-right",
+        autoClose: 3000,
+      });
     }
   };
 
@@ -184,17 +247,32 @@ const Module = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleRemoveModule = async (id) => {
-    await deleteDoc(doc(db, "module", id));
-    setModules(modules.filter((module) => module.id !== id));
+  const handleRemoveModule = async () => {
+    try {
+      await deleteDoc(doc(db, "module", moduleToDelete.id)); // Delete the module from Firestore
+      setModules(modules.filter((module) => module.id !== moduleToDelete.id)); // Update the state
+      setIsModalOpen(false); // Close the modal after successful deletion
+      showToast("Module deleted successfully!", "success");
+    } catch (error) {
+      console.error("Error deleting module:", error);
+      showToast("Error deleting module.", "error");
+    }
   };
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
-    setFormData({
-      ...formData,
-      moduleFile: file, // Store the raw file for upload
-    });
+
+    // Check if the file size is less than or equal to 10MB
+    if (file && file.size <= 10 * 1024 * 1024) {
+      // 10MB in bytes
+      setFileSizeError(""); // Clear error message if file size is valid
+      setFormData({
+        ...formData,
+        moduleFile: file, // Store the raw file for upload
+      });
+    } else {
+      setFileSizeError("The file must be less than or equal to 10MB.");
+    }
   };
 
   const handleNextPage = () => {
@@ -220,7 +298,7 @@ const Module = () => {
 
   return (
     <main className="flex flex-col lg:flex-row p-4 sm:p-6 lg:p-10 gap-6">
-      {/* Table Section */}
+      <ToastContainer />
       <section className="flex-1 bg-white rounded-lg shadow-md p-2 sm:p-4 overflow-x-auto">
         <header className="flex justify-between items-center mb-6">
           <h1 className="text-xl lg:text-2xl font-bold text-gray-800">
@@ -282,8 +360,8 @@ const Module = () => {
                     <FaEdit />
                   </button>
                   <button
-                    onClick={() => handleRemoveModule(module.id)}
                     className="bg-red-800 text-white p-2 rounded hover:bg-red-900 flex items-center"
+                    onClick={() => handleDeleteConfirmation(module)}
                   >
                     <FaTrashAlt />
                   </button>
@@ -405,6 +483,9 @@ const Module = () => {
               onChange={handleFileUpload}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
             />
+            {fileSizeError && (
+              <p className="text-red-600 text-sm mt-2">{fileSizeError}</p> // Display the error message
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
@@ -432,7 +513,7 @@ const Module = () => {
               required
             >
               <option value="" disabled>
-                Select uploader
+                Select professor
               </option>
               {users?.length > 0 ? (
                 users.map((user, index) => (
@@ -501,6 +582,20 @@ const Module = () => {
           </div>
         </div>
       )}
+      <Modal
+        isOpen={isModalOpen}
+        message={
+          modalAction === "delete"
+            ? "Are you sure you want to delete this module?"
+            : "Are you sure you want to save changes?"
+        }
+        onClose={handleCloseModal} // Close modal function
+        onConfirm={
+          modalAction === "delete"
+            ? handleRemoveModule
+            : handleSaveChangesConfirmation
+        }
+      />
     </main>
   );
 };

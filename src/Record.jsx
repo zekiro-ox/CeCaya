@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaEdit, FaTrashAlt, FaEye } from "react-icons/fa";
-import { db } from "./config/firebase"; // Ensure you have the correct path
+import { db } from "./config/firebase"; // Ensure this is correctly set up
 import {
   collection,
   getDocs,
@@ -8,155 +7,213 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  getDoc,
+  setDoc,
 } from "firebase/firestore";
-import axios from "axios";
+import { FaEdit, FaTrashAlt } from "react-icons/fa";
+import { ToastContainer, toast } from "react-toastify"; // Import Toastify
+import "react-toastify/dist/ReactToastify.css"; // Import styles for Toastify
+
+const Modal = ({ isOpen, message, onClose, onConfirm }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gray-500 bg-opacity-50 flex justify-center items-center">
+      <div className="bg-white p-6 rounded shadow-md w-1/3">
+        <h2 className="text-xl font-semibold text-gray-800">{message}</h2>
+        <div className="mt-4 flex justify-between space-x-4">
+          <button
+            onClick={onClose}
+            className="bg-gray-300 text-gray-700 px-4 py-2 rounded"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="bg-red-800 text-white px-4 py-2 rounded"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const Record = () => {
-  const [records, setRecords] = useState([]);
+  const [institutes, setInstitutes] = useState([]);
+  const [selectedInstitute, setSelectedInstitute] = useState("");
+  const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [viewRecord, setViewRecord] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [editingRecord, setEditingRecord] = useState(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    logo: "",
-    courses: [""],
-  });
+  const [foreignKey, setForeignKey] = useState(1); // Track the increment value
+  const [formData, setFormData] = useState({ courseName: "", description: "" });
+  const [editingCourse, setEditingCourse] = useState(null); // To track the course being edited
+  const [isModalOpen, setIsModalOpen] = useState(false); // Modal visibility
+  const [modalAction, setModalAction] = useState(null); // Action to confirm (save or delete)
+  const [courseToDelete, setCourseToDelete] = useState(null); // Course to delete
 
-  const recordsRef = collection(db, "institutes");
+  const institutesRef = collection(db, "institutes");
+  const coursesRef = collection(db, "courses");
 
-  // Fetch records from Firestore
+  // Fetch Institutes from Firestore
   useEffect(() => {
-    const fetchRecords = async () => {
+    const fetchInstitutes = async () => {
       setLoading(true);
       try {
-        const snapshot = await getDocs(recordsRef);
-        const fetchedRecords = snapshot.docs.map((doc) => ({
+        const snapshot = await getDocs(institutesRef);
+        const fetchedInstitutes = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
-        setRecords(fetchedRecords);
+        setInstitutes(fetchedInstitutes);
       } catch (error) {
-        console.error("Error fetching records: ", error);
+        console.error("Error fetching institutes: ", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchRecords();
+    fetchInstitutes();
   }, []);
 
-  const handleAddCourse = () => {
-    setFormData((prevData) => ({
-      ...prevData,
-      courses: [...prevData.courses, ""],
-    }));
-  };
+  // Fetch Courses when an Institute is Selected
+  useEffect(() => {
+    const fetchCourses = async () => {
+      if (!selectedInstitute) return;
 
-  const handleCourseChange = (index, value) => {
-    const updatedCourses = [...formData.courses];
-    updatedCourses[index] = value;
-    setFormData((prevData) => ({
-      ...prevData,
-      courses: updatedCourses,
-    }));
-  };
+      setLoading(true);
+      try {
+        const snapshot = await getDocs(coursesRef);
+        const fetchedCourses = snapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .filter((course) => course.foreignKey === selectedInstitute);
+        setCourses(fetchedCourses);
 
-  const handleRemoveCourse = (index) => {
-    const updatedCourses = formData.courses.filter((_, i) => i !== index);
-    setFormData((prevData) => ({
-      ...prevData,
-      courses: updatedCourses,
-    }));
-  };
+        // Find the current foreignKey increment
+        const maxKey = Math.max(
+          ...fetchedCourses.map((course) =>
+            parseInt(course.id.split("-")[1] || "0")
+          ),
+          0
+        );
+        setForeignKey(maxKey + 1);
+      } catch (error) {
+        console.error("Error fetching courses: ", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handleAddRecord = async () => {
-    try {
-      const docRef = await addDoc(recordsRef, formData);
-      setRecords((prev) => [...prev, { id: docRef.id, ...formData }]);
-      setFormData({ name: "", logo: "", courses: [""] }); // Reset form
-      alert("Record added successfully!");
-    } catch (error) {
-      console.error("Error adding record: ", error);
+    fetchCourses();
+  }, [selectedInstitute]);
+
+  // Show Toast Notification
+  const showToast = (message, type) => {
+    if (type === "success") {
+      toast.success(message, {
+        position: "top-right",
+        autoClose: 3000,
+      });
+    } else if (type === "error") {
+      toast.error(message, {
+        position: "top-right",
+        autoClose: 3000,
+      });
     }
   };
 
-  const handleEditRecord = (record) => {
-    setEditingRecord(record);
-    setFormData({
-      name: record.name,
-      logo: record.logo,
-      courses: record.courses,
-    });
+  // Handle Course Addition
+  const handleAddCourse = async () => {
+    if (!selectedInstitute || !formData.courseName.trim()) {
+      showToast("Please select an institute and enter a course name.", "error");
+      return;
+    }
+
+    const courseId = `${selectedInstitute}-${String(foreignKey).padStart(
+      3,
+      "0"
+    )}`;
+    const courseRef = doc(db, "courses", courseId);
+
+    const newCourse = {
+      name: formData.courseName,
+      description: formData.description, // Include description
+      foreignKey: selectedInstitute,
+    };
+
+    try {
+      await setDoc(courseRef, newCourse);
+      setCourses((prev) => [...prev, { id: courseId, ...newCourse }]);
+      setForeignKey((prev) => prev + 1);
+      setFormData({ courseName: "", description: "" });
+      showToast("Course added successfully!", "success");
+    } catch (error) {
+      console.error("Error adding course: ", error);
+      showToast("Error adding course.", "error");
+    }
+  };
+
+  // Handle Course Edit
+  const handleEditCourse = (course) => {
+    setEditingCourse(course);
+    setFormData({ courseName: course.name, description: course.description });
   };
 
   const handleSaveChanges = async () => {
     try {
-      const recordRef = doc(db, "institutes", editingRecord.id);
-      await updateDoc(recordRef, formData);
+      const courseRef = doc(db, "courses", editingCourse.id);
 
-      setRecords((prev) =>
-        prev.map((record) =>
-          record.id === editingRecord.id ? { ...record, ...formData } : record
+      const docSnapshot = await getDoc(courseRef);
+      if (!docSnapshot.exists()) {
+        showToast("The course does not exist in the database.", "error");
+        return;
+      }
+
+      await updateDoc(courseRef, {
+        name: formData.courseName,
+        description: formData.description,
+      });
+
+      setCourses((prev) =>
+        prev.map((course) =>
+          course.id === editingCourse.id
+            ? {
+                ...course,
+                name: formData.courseName,
+                description: formData.description,
+              }
+            : course
         )
       );
 
-      setEditingRecord(null);
-      setFormData({ name: "", logo: "", courses: [""] }); // Reset form
-      alert("Record updated successfully!");
+      setEditingCourse(null);
+      setFormData({ courseName: "", description: "" });
+      showToast("Course updated successfully!", "success");
+      setIsModalOpen(false); // Close the modal
     } catch (error) {
-      console.error("Error updating record: ", error);
+      console.error("Error updating course: ", error);
+      showToast("Error updating course.", "error");
     }
   };
 
-  const handleDeleteRecord = async (id) => {
+  // Handle Course Deletion
+  const handleDeleteCourse = async () => {
     try {
-      const recordRef = doc(db, "institutes", id);
-      await deleteDoc(recordRef);
-      setRecords((prev) => prev.filter((record) => record.id !== id));
-      alert("Record deleted successfully!");
+      const courseRef = doc(db, "courses", courseToDelete.id);
+      await deleteDoc(courseRef);
+      setCourses((prev) => prev.filter((c) => c.id !== courseToDelete.id));
+      setCourseToDelete(null);
+      showToast("Course deleted successfully!", "success");
+      setIsModalOpen(false); // Close the modal
     } catch (error) {
-      console.error("Error deleting record: ", error);
+      console.error("Error deleting course: ", error);
+      showToast("Error deleting course.", "error");
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prevData) => ({
-      ...prevData,
-      [name]: value,
-    }));
-  };
-
-  const handleFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("upload_preset", "cecaya_preset"); // Replace with your Cloudinary preset
-
-      try {
-        const response = await axios.post(
-          `https://api.cloudinary.com/v1_1/dqslazit0/image/upload`,
-          formData
-        );
-
-        setFormData((prevData) => ({
-          ...prevData,
-          logo: response.data.secure_url, // Save the Cloudinary URL
-        }));
-      } catch (error) {
-        console.error("Error uploading image to Cloudinary:", error);
-      }
-    }
-  };
-
-  const handleViewRecord = (record) => {
-    setViewRecord(record);
-    setShowModal(true);
-  };
   return (
     <main className="flex flex-col lg:flex-row p-4 sm:p-6 lg:p-10 gap-6">
+      <ToastContainer />
       <section className="flex-1 bg-white rounded-lg shadow-md p-2 sm:p-4 overflow-x-auto">
         <header className="flex justify-between items-center mb-6">
           <h1 className="text-xl lg:text-2xl font-bold text-gray-800">
@@ -165,181 +222,153 @@ const Record = () => {
         </header>
 
         {loading ? (
-          <p>Loading records...</p>
+          <p>Loading data...</p>
         ) : (
-          <table className="w-full border-collapse border border-gray-200">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
-                  ID
-                </th>
-                <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
-                  Logo
-                </th>
-                <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
-                  Institute
-                </th>
-                <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((record) => (
-                <tr key={record.id} className="hover:bg-gray-50">
-                  <td className="border border-gray-200 px-4 py-2">
-                    {record.id}
-                  </td>
-                  <td className="border border-gray-200 px-4 py-2">
-                    <img
-                      src={record.logo}
-                      alt="Institute Logo"
-                      className="w-10 h-10 rounded-full"
-                    />
-                  </td>
-                  <td className="border border-gray-200 px-4 py-2">
-                    {record.name}
-                  </td>
-                  <td className="border border-gray-200 px-4 py-2 flex space-x-2">
-                    <button
-                      className="text-white bg-yellow-800 p-2 rounded hover:bg-yellow-900 flex items-center"
-                      onClick={() => handleViewRecord(record)}
-                    >
-                      <FaEye />
-                    </button>
-                    <button
-                      className="text-white bg-lime-800 p-2 rounded hover:bg-lime-900 flex items-center"
-                      onClick={() => handleEditRecord(record)}
-                    >
-                      <FaEdit />
-                    </button>
-                    <button
-                      className="bg-red-800 text-white p-2 rounded hover:bg-red-900 flex items-center"
-                      onClick={() => handleDeleteRecord(record.id)}
-                    >
-                      <FaTrashAlt />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            <div className="mb-6">
+              <label className="block text-gray-700 mb-2">
+                Select Institute
+              </label>
+              <select
+                value={selectedInstitute}
+                onChange={(e) => setSelectedInstitute(e.target.value)}
+                className="border px-4 py-2 rounded-lg w-full shadow"
+              >
+                <option value="">Select an institute</option>
+                {institutes.map((institute) => (
+                  <option key={institute.id} value={institute.id}>
+                    {institute.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {selectedInstitute && (
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">
+                  Courses for{" "}
+                  {institutes.find((i) => i.id === selectedInstitute)?.name}
+                </h2>
+                <table className="min-w-full table-auto border-collapse">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
+                        ID
+                      </th>
+                      <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
+                        Name
+                      </th>
+                      <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
+                        Description
+                      </th>
+                      <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {courses.map((course) => (
+                      <tr key={course.id} className="hover:bg-gray-50">
+                        <td className="border border-gray-200 px-4 py-2">
+                          {course.id}
+                        </td>
+                        <td className="border border-gray-200 px-4 py-2">
+                          {course.name}
+                        </td>
+                        <td className="border border-gray-200 px-4 py-2">
+                          {course.description}
+                        </td>
+                        <td className="border border-gray-200 px-4 py-2">
+                          <div className="flex space-x-2">
+                            <button
+                              className="text-white bg-lime-800 p-2 rounded hover:bg-lime-900 flex items-center"
+                              onClick={() => handleEditCourse(course)}
+                            >
+                              <FaEdit />
+                            </button>
+                            <button
+                              className="bg-red-800 text-white p-2 rounded hover:bg-red-900 flex items-center"
+                              onClick={() => {
+                                setCourseToDelete(course);
+                                setModalAction("delete");
+                                setIsModalOpen(true);
+                              }}
+                            >
+                              <FaTrashAlt />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
       </section>
 
-      {/* Modal Section */}
-      {showModal && viewRecord && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-3/4 sm:w-1/2">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              Record Details
-            </h2>
-            <p>
-              <strong>ID:</strong> {viewRecord.id}
-            </p>
-            <p>
-              <strong>Institute Name:</strong> {viewRecord.name}
-            </p>
-            <p>
-              <strong>Courses:</strong> {viewRecord.courses.join(", ")}
-            </p>
-            <p>
-              <strong>Logo:</strong>{" "}
-              <img src={viewRecord.logo} alt="Logo" className="w-20 h-20" />
-            </p>
-            <button
-              className="mt-4 bg-red-800 text-white px-4 py-2 rounded hover:bg-red-900"
-              onClick={() => setShowModal(false)}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Form Section */}
       <section className="lg:w-1/3 bg-white rounded-lg shadow-md p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">
-          {editingRecord ? "Edit Record" : "Add New Record"}
+          {editingCourse ? "Edit Course" : "Add Course"}
         </h2>
         <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Institute Name
+              Course Name
             </label>
             <input
               type="text"
-              name="name"
-              value={formData.name}
+              value={formData.courseName}
               onChange={(e) =>
                 setFormData((prevData) => ({
                   ...prevData,
-                  name: e.target.value,
+                  courseName: e.target.value,
                 }))
               }
-              placeholder="Enter institute name"
+              placeholder="Enter course name"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Logo
+              Description
             </label>
-            <input
-              type="file"
-              accept="image/png, image/jpeg, image/jpg"
-              onChange={handleFileChange}
+            <textarea
+              type="text"
+              value={formData.description}
+              onChange={(e) =>
+                setFormData((prevData) => ({
+                  ...prevData,
+                  description: e.target.value,
+                }))
+              }
+              placeholder="Enter course description"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
             />
-            {formData.logo && (
-              <img
-                src={formData.logo}
-                alt="Uploaded logo"
-                className="w-20 h-20 mt-2"
-              />
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Courses
-            </label>
-            {formData.courses.map((course, index) => (
-              <div key={index} className="flex items-center space-x-2 mt-1">
-                <input
-                  type="text"
-                  placeholder={`Course ${index + 1}`}
-                  value={course}
-                  onChange={(e) => handleCourseChange(index, e.target.value)}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
-                />
-                {formData.courses.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveCourse(index)}
-                    className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={handleAddCourse}
-              className="mt-2 bg-lime-800 text-white px-4 py-2 rounded hover:bg-lime-900"
-            >
-              Add More Course
-            </button>
           </div>
           <button
             type="submit"
             className="w-full bg-lime-800 text-white px-4 py-2 rounded hover:bg-lime-900"
-            onClick={editingRecord ? handleSaveChanges : handleAddRecord}
+            onClick={handleAddCourse} // Directly call handleAddCourse
           >
-            {editingRecord ? "Save Changes" : "Add Record"}
+            {editingCourse ? "Save Changes" : "Add Course"}
           </button>
         </form>
       </section>
+
+      <Modal
+        isOpen={isModalOpen}
+        message={
+          modalAction === "delete"
+            ? "Are you sure you want to delete this course?"
+            : "Are you sure you want to save changes?"
+        }
+        onClose={() => setIsModalOpen(false)}
+        onConfirm={
+          modalAction === "delete" ? handleDeleteCourse : handleSaveChanges
+        }
+      />
     </main>
   );
 };

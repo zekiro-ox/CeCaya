@@ -7,9 +7,9 @@ import {
 } from "firebase/auth";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import Logo from "./assets/CCECAYALOGO.png";
-import { ToastContainer, toast } from "react-toastify";
-import ReCAPTCHA from "react-google-recaptcha"; // Import ReCAPTCHA component
+import { ToastContainer, toast } from "react-toastify"; // Import ReCAPTCHA component
 import "react-toastify/dist/ReactToastify.css";
+import ReCAPTCHA from "react-google-recaptcha";
 
 const LoginPage = ({ onLogin }) => {
   const [username, setUsername] = useState("");
@@ -58,7 +58,6 @@ const LoginPage = ({ onLogin }) => {
         {
           position: "top-right",
           autoClose: 3000,
-          style: { backgroundColor: "rgb(153 27 27)", color: "white" },
         }
       );
       return;
@@ -68,7 +67,6 @@ const LoginPage = ({ onLogin }) => {
       toast.error("Please verify the CAPTCHA before logging in.", {
         position: "top-right",
         autoClose: 3000,
-        style: { backgroundColor: "rgb(153 27 27)", color: "white" },
       });
       return;
     }

@@ -3,16 +3,46 @@ import { FaEdit, FaTrashAlt, FaEye } from "react-icons/fa";
 import { db } from "./config/firebase";
 import {
   collection,
-  addDoc,
-  updateDoc,
-  doc,
-  deleteDoc,
   getDocs,
+  doc,
+  updateDoc,
+  deleteDoc,
   setDoc,
 } from "firebase/firestore";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+const Modal = ({ isOpen, message, onClose, onConfirm }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gray-500 bg-opacity-50 flex justify-center items-center">
+      <div className="bg-white p-6 rounded shadow-md w-1/3">
+        <h2 className="text-xl font-semibold text-gray-800">{message}</h2>
+        <div className="mt-4 flex justify-between space-x-4">
+          <button
+            onClick={onClose}
+            className="bg-gray-300 text-gray-700 px-4 py-2 rounded"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="bg-red-600 text-white px-4 py-2 rounded"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const Subject = () => {
   const [subjects, setSubjects] = useState([]);
+  const [institutes, setInstitutes] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [selectedInstitute, setSelectedInstitute] = useState("");
   const [formData, setFormData] = useState({
     code: "",
     name: "",
@@ -20,89 +50,104 @@ const Subject = () => {
     institute: "",
     course: "",
   });
-
-  const [institutes, setInstitutes] = useState([]);
-  const [availableCourses, setAvailableCourses] = useState([]);
   const [editingRecord, setEditingRecord] = useState(null);
   const [viewSubject, setViewSubject] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(""); // State for the search query
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage, setRecordsPerPage] = useState(5);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalAction, setModalAction] = useState(""); // Track the modal action (save/delete)
+  const [subjectToDelete, setSubjectToDelete] = useState(null);
 
+  const institutesRef = collection(db, "institutes");
+  const coursesRef = collection(db, "courses");
+  const subjectsRef = collection(db, "subjects");
+
+  // Fetch Institutes
   useEffect(() => {
     const fetchInstitutes = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, "institutes"));
-        const instituteList = querySnapshot.docs.map((doc) => ({
+        const snapshot = await getDocs(institutesRef);
+        const fetchedInstitutes = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
-        setInstitutes(instituteList);
+        setInstitutes(fetchedInstitutes);
       } catch (error) {
         console.error("Error fetching institutes: ", error);
       }
     };
 
+    fetchInstitutes();
+  }, []);
+
+  // Fetch Courses when an Institute is Selected
+  useEffect(() => {
+    const fetchCourses = async () => {
+      if (!selectedInstitute) return;
+      try {
+        const snapshot = await getDocs(coursesRef);
+        const fetchedCourses = snapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .filter((course) => course.foreignKey === selectedInstitute);
+        setCourses(fetchedCourses);
+      } catch (error) {
+        console.error("Error fetching courses: ", error);
+      }
+    };
+
+    fetchCourses();
+  }, [selectedInstitute]);
+
+  // Fetch Subjects
+  useEffect(() => {
     const fetchSubjects = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, "subjects"));
-        const subjectsList = querySnapshot.docs.map((doc) => ({
-          ...doc.data(),
+        const snapshot = await getDocs(subjectsRef);
+        const fetchedSubjects = snapshot.docs.map((doc) => ({
           id: doc.id,
+          ...doc.data(),
         }));
-        setSubjects(subjectsList);
+        setSubjects(fetchedSubjects);
       } catch (error) {
         console.error("Error fetching subjects: ", error);
       }
     };
 
-    fetchInstitutes();
     fetchSubjects();
   }, []);
 
-  const handleAddOrEditSubject = async (e) => {
-    e.preventDefault();
-    try {
-      if (editingRecord) {
-        const docRef = doc(db, "subjects", editingRecord.code);
-        await updateDoc(docRef, formData);
-        setSubjects((prevSubjects) =>
-          prevSubjects.map((subject) =>
-            subject.code === editingRecord.code ? formData : subject
-          )
-        );
-        setEditingRecord(null);
-      } else {
-        const docRef = doc(db, "subjects", formData.code);
-        await setDoc(docRef, formData);
-        setSubjects([...subjects, formData]);
-      }
-
-      setFormData({
-        code: "",
-        name: "",
-        description: "",
-        institute: "",
-        course: "",
+  const showToast = (message, type) => {
+    if (type === "success") {
+      toast.success(message, {
+        position: "top-right",
+        autoClose: 3000,
       });
-    } catch (error) {
-      console.error("Error adding/updating subject: ", error);
+    } else if (type === "error") {
+      toast.error(message, {
+        position: "top-right",
+        autoClose: 3000,
+      });
     }
   };
 
-  const handleInstituteChange = (e) => {
-    const selectedInstitute = e.target.value;
-    setFormData({ ...formData, institute: selectedInstitute, course: "" });
+  // Search filter function
+  const filteredSubjects = subjects.filter(
+    (subject) =>
+      subject.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      subject.code.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-    // Find courses for the selected institute
-    const institute = institutes.find(
-      (inst) => inst.name === selectedInstitute
-    );
-    if (institute) {
-      setAvailableCourses(institute.courses || []);
-    } else {
-      setAvailableCourses([]);
-    }
+  const handleInstituteChange = (e) => {
+    const selected = e.target.value;
+    setSelectedInstitute(selected);
+    setFormData({ ...formData, institute: selected, course: "" });
+  };
+
+  const handleCourseChange = (e) => {
+    const selectedCourse = e.target.value;
+    setFormData({ ...formData, course: selectedCourse });
   };
 
   const handleInputChange = (e) => {
@@ -110,26 +155,80 @@ const Subject = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleEditRecord = (subject) => {
-    setEditingRecord(subject);
-    setFormData(subject);
+  const handleAddOrEditSubject = async (e) => {
+    e.preventDefault();
 
-    // Populate available courses based on the selected institute
-    const selectedInstitute = institutes.find(
-      (inst) => inst.name === subject.institute
-    );
-    setAvailableCourses(selectedInstitute?.courses || []);
+    // If editing, show confirmation modal
+    if (editingRecord) {
+      setModalAction("edit");
+      setSubjectToDelete(null); // Clear delete action
+      setIsModalOpen(true);
+    } else {
+      // If adding new subject, proceed without confirmation
+      try {
+        const docRef = doc(db, "subjects", formData.code);
+        await setDoc(docRef, formData);
+        setSubjects((prev) => [...prev, { id: formData.code, ...formData }]);
+        setFormData({
+          code: "",
+          name: "",
+          description: "",
+          institute: "",
+          course: "",
+        });
+        showToast("Subject save successfully!", "success");
+      } catch (error) {
+        console.error("Error saving subject: ", error);
+        showToast("Error saving subject.", "error");
+      }
+    }
   };
 
-  const handleRemoveSubject = async (index) => {
-    const subjectToRemove = subjects[index];
-    try {
-      const docRef = doc(db, "subjects", subjectToRemove.code);
+  const handleEditSubject = (subject) => {
+    setEditingRecord(subject);
+    setFormData(subject);
+    setSelectedInstitute(subject.institute);
+  };
+
+  const handleDeleteSubject = (id) => {
+    setSubjectToDelete(id);
+    setModalAction("delete");
+    setIsModalOpen(true);
+  };
+
+  const handleConfirmModal = async () => {
+    if (modalAction === "edit" && editingRecord) {
+      // Save the edited subject
+      const docRef = doc(db, "subjects", editingRecord.id);
+      await updateDoc(docRef, formData);
+      setSubjects((prev) =>
+        prev.map((subj) =>
+          subj.id === editingRecord.id
+            ? { id: editingRecord.id, ...formData }
+            : subj
+        )
+      );
+      setEditingRecord(null);
+      showToast("Subject updated successfully!", "success");
+    } else if (modalAction === "delete" && subjectToDelete) {
+      // Delete the subject
+      const docRef = doc(db, "subjects", subjectToDelete);
       await deleteDoc(docRef);
-      setSubjects(subjects.filter((_, i) => i !== index));
-    } catch (error) {
-      console.error("Error deleting subject: ", error);
+      setSubjects((prev) => prev.filter((subj) => subj.id !== subjectToDelete));
+      showToast("Subject deleted successfully!", "success"); // Success toast for delete
     }
+
+    // Reset modal and form state after confirmation
+    setIsModalOpen(false);
+    setModalAction("");
+    setSubjectToDelete(null);
+    setFormData({
+      code: "",
+      name: "",
+      description: "",
+      institute: "",
+      course: "",
+    });
   };
 
   const handleViewSubject = (subject) => {
@@ -138,7 +237,7 @@ const Subject = () => {
   };
 
   const handleNextPage = () => {
-    if (currentPage < Math.ceil(subjects.length / recordsPerPage)) {
+    if (currentPage < Math.ceil(filteredSubjects.length / recordsPerPage)) {
       setCurrentPage(currentPage + 1);
     }
   };
@@ -154,18 +253,27 @@ const Subject = () => {
     setCurrentPage(1);
   };
 
-  const currentRecords = subjects.slice(
+  const currentRecords = filteredSubjects.slice(
     (currentPage - 1) * recordsPerPage,
     currentPage * recordsPerPage
   );
+
   return (
     <main className="flex flex-col lg:flex-row p-4 sm:p-6 lg:p-10 gap-6">
-      {/* Table Section */}
+      <ToastContainer />
       <section className="flex-1 bg-white rounded-lg shadow-md p-2 sm:p-4 overflow-x-auto">
         <header className="flex justify-between items-center mb-6">
           <h1 className="text-xl lg:text-2xl font-bold text-gray-800">
             Subject Management
           </h1>
+          {/* Search Bar */}
+          <input
+            type="text"
+            placeholder="Search Subjects"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="border p-2 rounded"
+          />
         </header>
         <table className="w-full border-collapse border border-gray-200">
           <thead className="bg-gray-100">
@@ -205,12 +313,12 @@ const Subject = () => {
                   </button>
                   <button
                     className="text-white bg-lime-800 p-2 rounded hover:bg-lime-900 flex items-center"
-                    onClick={() => handleEditRecord(subject)}
+                    onClick={() => handleEditSubject(subject)}
                   >
                     <FaEdit />
                   </button>
                   <button
-                    onClick={() => handleRemoveSubject(index)}
+                    onClick={() => handleDeleteSubject(subject.id)}
                     className="bg-red-800 text-white p-2 rounded hover:bg-red-900 flex items-center"
                   >
                     <FaTrashAlt />
@@ -282,10 +390,10 @@ const Subject = () => {
               required
             >
               <option value="" disabled>
-                Select an institute
+                Select Institute
               </option>
               {institutes.map((institute) => (
-                <option key={institute.id} value={institute.name}>
+                <option key={institute.id} value={institute.id}>
                   {institute.name}
                 </option>
               ))}
@@ -298,19 +406,19 @@ const Subject = () => {
             <select
               name="course"
               value={formData.course}
-              onChange={handleInputChange}
+              onChange={handleCourseChange}
               className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2 ${
-                !availableCourses.length ? "bg-gray-100 cursor-not-allowed" : ""
+                !courses.length ? "bg-gray-100 cursor-not-allowed" : ""
               }`}
               required
-              disabled={!availableCourses.length} // Disable only if there are no courses
+              disabled={!courses.length} // Disable only if there are no courses
             >
               <option value="" disabled>
-                Select a course
+                Select Course
               </option>
-              {availableCourses.map((course, index) => (
-                <option key={index} value={course}>
-                  {course}
+              {courses.map((course) => (
+                <option key={course.id} value={course.name}>
+                  {course.name}
                 </option>
               ))}
             </select>
@@ -399,6 +507,18 @@ const Subject = () => {
           </div>
         </div>
       )}
+      <Modal
+        isOpen={isModalOpen}
+        message={
+          modalAction === "edit"
+            ? "Are you sure you want to save changes?"
+            : modalAction === "delete"
+            ? "Are you sure you want to delete this subject?"
+            : ""
+        }
+        onClose={() => setIsModalOpen(false)}
+        onConfirm={handleConfirmModal}
+      />
     </main>
   );
 };
