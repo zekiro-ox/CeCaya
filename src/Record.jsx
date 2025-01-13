@@ -12,7 +12,10 @@ import {
 } from "firebase/firestore";
 import { FaEdit, FaTrashAlt } from "react-icons/fa";
 import { ToastContainer, toast } from "react-toastify"; // Import Toastify
-import "react-toastify/dist/ReactToastify.css"; // Import styles for Toastify
+import "react-toastify/dist/ReactToastify.css";
+import ICSLISLogo from "./assets/icslis.png";
+import IBMLogo from "./assets/ibm.png";
+import IEASLogo from "./assets/ieas.png";
 
 const Modal = ({ isOpen, message, onClose, onConfirm }) => {
   if (!isOpen) return null;
@@ -211,6 +214,29 @@ const Record = () => {
     }
   };
 
+  const renderInstituteLogo = (instituteId) => {
+    switch (instituteId) {
+      case "ICSLIS":
+        return (
+          <img
+            src={ICSLISLogo}
+            alt="ICSLIS Logo"
+            className="h-16 rounded-full"
+          />
+        );
+      case "IBM":
+        return (
+          <img src={IBMLogo} alt="IBM Logo" className="h-16 rounded-full" />
+        );
+      case "IEAS":
+        return (
+          <img src={IEASLogo} alt="IEAS Logo" className="h-16 rounded-full" />
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <main className="flex flex-col lg:flex-row p-4 sm:p-6 lg:p-10 gap-6">
       <ToastContainer />
@@ -219,6 +245,7 @@ const Record = () => {
           <h1 className="text-xl lg:text-2xl font-bold text-gray-800">
             Academic Management
           </h1>
+          {selectedInstitute && renderInstituteLogo(selectedInstitute)}
         </header>
 
         {loading ? (
