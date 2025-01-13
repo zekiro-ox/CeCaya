@@ -57,7 +57,7 @@ const Dashboard = () => {
 
     // Fetch total institutes from 'institutes' collection
     const fetchInstitutes = async () => {
-      const institutesSnapshot = await getDocs(collection(db, "institutes"));
+      const institutesSnapshot = await getDocs(collection(db, "courses"));
       setTotalInstitutes(institutesSnapshot.size);
     };
 
@@ -98,7 +98,7 @@ const Dashboard = () => {
           <HiAcademicCap className="h-6 w-6 text-gray-500 mr-4" />
           <div>
             <h2 className="text-lg lg:text-xl font-semibold text-gray-700 mb-2">
-              Total Institutes
+              Total Courses
             </h2>
             <p className="text-gray-500">{totalInstitutes}</p>
           </div>
