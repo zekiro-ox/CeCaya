@@ -378,7 +378,7 @@ const Application = () => {
                   <img
                     src={application.logo}
                     alt="logo"
-                    className="h-8 w-8 object-cover"
+                    className="h-8 w-8 rounded-full object-cover"
                   />
                 </td>
                 <td className="border border-gray-200 px-4 py-2">
