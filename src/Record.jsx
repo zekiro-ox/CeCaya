@@ -163,14 +163,13 @@ const Record = () => {
   };
 
   const handleSaveChanges = async () => {
+    if (!formData.courseName.trim()) {
+      showToast("Course name cannot be empty.", "error");
+      return;
+    }
+
     try {
       const courseRef = doc(db, "courses", editingCourse.id);
-
-      const docSnapshot = await getDoc(courseRef);
-      if (!docSnapshot.exists()) {
-        showToast("The course does not exist in the database.", "error");
-        return;
-      }
 
       await updateDoc(courseRef, {
         name: formData.courseName,
@@ -192,7 +191,6 @@ const Record = () => {
       setEditingCourse(null);
       setFormData({ courseName: "", description: "" });
       showToast("Course updated successfully!", "success");
-      setIsModalOpen(false); // Close the modal
     } catch (error) {
       console.error("Error updating course: ", error);
       showToast("Error updating course.", "error");
@@ -377,7 +375,10 @@ const Record = () => {
           <button
             type="submit"
             className="w-full bg-lime-800 text-white px-4 py-2 rounded hover:bg-lime-900"
-            onClick={handleAddCourse} // Directly call handleAddCourse
+            onClick={() => {
+              setModalAction(editingCourse ? "save" : "add");
+              setIsModalOpen(true);
+            }}
           >
             {editingCourse ? "Save Changes" : "Add Course"}
           </button>
@@ -389,12 +390,22 @@ const Record = () => {
         message={
           modalAction === "delete"
             ? "Are you sure you want to delete this course?"
-            : "Are you sure you want to save changes?"
+            : modalAction === "save"
+            ? "Are you sure you want to save changes?"
+            : "Are you sure you want to add this course?"
         }
         onClose={() => setIsModalOpen(false)}
-        onConfirm={
-          modalAction === "delete" ? handleDeleteCourse : handleSaveChanges
-        }
+        onConfirm={() => {
+          if (modalAction === "delete") handleDeleteCourse();
+          if (modalAction === "save") {
+            setIsModalOpen(false);
+            handleSaveChanges();
+          }
+          if (modalAction === "add") {
+            setIsModalOpen(false);
+            handleAddCourse();
+          }
+        }}
       />
     </main>
   );

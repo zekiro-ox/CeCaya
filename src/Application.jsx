@@ -10,6 +10,34 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import axios from "axios";
+import { ToastContainer, toast } from "react-toastify"; // Import Toastify
+import "react-toastify/dist/ReactToastify.css";
+
+const Modal = ({ isOpen, message, onClose, onConfirm }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gray-500 bg-opacity-50 flex justify-center items-center">
+      <div className="bg-white p-6 rounded shadow-md w-1/3">
+        <h2 className="text-xl font-semibold text-gray-800">{message}</h2>
+        <div className="mt-4 flex justify-between space-x-4">
+          <button
+            onClick={onClose}
+            className="bg-gray-300 text-gray-700 px-4 py-2 rounded"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="bg-red-800 text-white px-4 py-2 rounded"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const Application = () => {
   const [applications, setApplications] = useState([]);
@@ -34,22 +62,57 @@ const Application = () => {
   const [recordsPerPage, setRecordsPerPage] = useState(5);
   const [professors, setProfessors] = useState([]);
   const totalRecords = applications.length;
+  const [selectedInstitute, setSelectedInstitute] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false); // Modal visibility
+  const [modalAction, setModalAction] = useState(null); // Action to confirm (save or delete)
+  const [applicationToDelete, setApplicationToDelete] = useState(null);
+
+  const institutesRef = collection(db, "institutes");
+  const coursesRef = collection(db, "courses");
+
+  // Fetch Institutes from Firestore
   useEffect(() => {
     const fetchInstitutes = async () => {
+      setLoading(true);
       try {
-        const querySnapshot = await getDocs(collection(db, "institutes"));
-        const instituteList = querySnapshot.docs.map((doc) => ({
+        const snapshot = await getDocs(institutesRef);
+        const fetchedInstitutes = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
-        setInstitutes(instituteList); // Keep the full data to access courses later
+        setInstitutes(fetchedInstitutes);
       } catch (error) {
-        console.error("Error fetching institutes:", error);
+        console.error("Error fetching institutes: ", error);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchInstitutes();
   }, []);
+
+  // Fetch Courses when an Institute is Selected
+  useEffect(() => {
+    const fetchCourses = async () => {
+      if (!selectedInstitute) return;
+
+      setLoading(true);
+      try {
+        const snapshot = await getDocs(coursesRef);
+        const fetchedCourses = snapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .filter((course) => course.foreignKey === selectedInstitute);
+        setCourses(fetchedCourses);
+      } catch (error) {
+        console.error("Error fetching courses: ", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourses();
+  }, [selectedInstitute]);
 
   useEffect(() => {
     const fetchProfessors = async () => {
@@ -85,8 +148,23 @@ const Application = () => {
     fetchApplications();
   }, []);
 
+  const showToast = (message, type) => {
+    if (type === "success") {
+      toast.success(message, {
+        position: "top-right",
+        autoClose: 3000,
+      });
+    } else if (type === "error") {
+      toast.error(message, {
+        position: "top-right",
+        autoClose: 3000,
+      });
+    }
+  };
+
   const handleAddApplication = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault(); // Prevent default only if event exists
+
     try {
       const docRef = await addDoc(collection(db, "applications"), formData);
       setApplications([...applications, { id: docRef.id, ...formData }]);
@@ -99,28 +177,50 @@ const Application = () => {
         description: "",
         uploader: "",
       });
+      showToast("Added successfully!", "success");
     } catch (error) {
       console.error("Error adding application:", error);
+      showToast("Error adding.", "error");
     }
   };
 
   const handleEditRecord = (application) => {
     setEditingRecord(application.id);
 
-    // Find the selected institute and pre-populate courses
+    // Set the selected institute ID to load its courses
     const selectedInstitute = institutes.find(
-      (inst) => inst.name === application.institute
+      (institute) => institute.id === application.institute
     );
+    if (selectedInstitute) {
+      setSelectedInstitute(selectedInstitute.id);
+    }
 
-    setCourses(selectedInstitute?.courses || []); // Set courses based on the institute
-    setFormData({
-      ...application, // Retain the existing form data
-      logo: application.logo, // Ensure the logo URL is set
-    });
+    // Fetch courses dynamically for the selected institute
+    const fetchCoursesForEdit = async () => {
+      try {
+        const snapshot = await getDocs(coursesRef);
+        const fetchedCourses = snapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .filter((course) => course.foreignKey === application.institute);
+
+        setCourses(fetchedCourses);
+
+        // Set formData including the selected course
+        setFormData({
+          ...application,
+          course: application.course, // Ensure the course is pre-selected
+        });
+      } catch (error) {
+        console.error("Error fetching courses during edit:", error);
+      }
+    };
+
+    fetchCoursesForEdit();
   };
 
   const handleSaveChanges = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault(); // Prevent default behavior if `e` exists
+
     try {
       const appRef = doc(db, "applications", editingRecord);
       await updateDoc(appRef, formData);
@@ -140,17 +240,30 @@ const Application = () => {
         description: "",
         uploader: "",
       });
+      setIsModalOpen(false);
+      showToast("Save changes successfully!", "success");
     } catch (error) {
       console.error("Error saving changes:", error);
+      showToast("Error saving.", "error");
     }
   };
 
-  const handleRemoveApplication = async (id) => {
+  const handleRemoveApplication = async () => {
+    if (!applicationToDelete || !applicationToDelete.id) {
+      console.error("No application selected for deletion.");
+      return;
+    }
+
     try {
-      await deleteDoc(doc(db, "applications", id));
-      setApplications(applications.filter((app) => app.id !== id));
+      await deleteDoc(doc(db, "applications", applicationToDelete.id));
+      setApplications(
+        applications.filter((app) => app.id !== applicationToDelete.id)
+      );
+      setIsModalOpen(false);
+      showToast("Deleted successfully!", "success");
     } catch (error) {
       console.error("Error deleting application:", error);
+      showToast("Error deleting", "error");
     }
   };
 
@@ -158,14 +271,11 @@ const Application = () => {
     const { name, value } = e.target;
 
     if (name === "institute") {
-      const selectedInstitute = institutes.find((inst) => inst.name === value);
-      setCourses(selectedInstitute?.courses || []);
-
-      // Reset the course only if a new institute is selected
+      setSelectedInstitute(value);
       setFormData((prevFormData) => ({
         ...prevFormData,
         institute: value,
-        course: prevFormData.institute === value ? prevFormData.course : "", // Reset course if the institute changes
+        course: "", // Reset course when the institute changes
       }));
     } else {
       setFormData({ ...formData, [name]: value });
@@ -174,15 +284,20 @@ const Application = () => {
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
-    const uploadFormData = new FormData();
 
+    if (!file) {
+      console.error("No file selected for upload.");
+      return;
+    }
+
+    const uploadFormData = new FormData();
     uploadFormData.append("file", file);
-    uploadFormData.append("upload_preset", "cecaya_preset"); // Replace with your Cloudinary upload preset
+    uploadFormData.append("upload_preset", "cecaya_preset"); // Replace with your actual preset name
     uploadFormData.append("folder", "applications"); // Optional: specify a folder in Cloudinary
 
     try {
       const response = await axios.post(
-        `https://api.cloudinary.com/v1_1/dqslazit0/image/upload`, // Replace with your Cloudinary cloud name
+        "https://api.cloudinary.com/v1_1/dqslazit0/image/upload", // Replace with your cloud name
         uploadFormData
       );
 
@@ -191,8 +306,10 @@ const Application = () => {
         ...prevFormData,
         logo: fileUrl, // Save the Cloudinary URL
       }));
+      toast.success("File uploaded successfully!");
     } catch (error) {
       console.error("Error uploading file to Cloudinary:", error);
+      toast.error("Failed to upload file. Please try again.");
     }
   };
 
@@ -224,7 +341,7 @@ const Application = () => {
   };
   return (
     <main className="flex flex-col lg:flex-row p-4 sm:p-6 lg:p-10 gap-6">
-      {/* Table Section */}
+      <ToastContainer />
       <section className="flex-1 bg-white rounded-lg shadow-md p-2 sm:p-4 overflow-x-auto">
         <header className="flex justify-between items-center mb-6">
           <h1 className="text-xl lg:text-2xl font-bold text-gray-800">
@@ -284,7 +401,15 @@ const Application = () => {
                     <FaEdit />
                   </button>
                   <button
-                    onClick={() => handleRemoveApplication(application.id)}
+                    onClick={() => {
+                      if (!application) {
+                        console.error("Application is undefined.");
+                        return;
+                      }
+                      setApplicationToDelete(application);
+                      setModalAction("delete");
+                      setIsModalOpen(true);
+                    }}
                     className="bg-red-800 text-white p-2 rounded hover:bg-red-900 flex items-center"
                   >
                     <FaTrashAlt />
@@ -342,7 +467,12 @@ const Application = () => {
           {editingRecord ? "Edit Application" : "Add New Application"}
         </h2>
         <form
-          onSubmit={editingRecord ? handleSaveChanges : handleAddApplication}
+          onSubmit={(e) => {
+            e.preventDefault(); // Prevent default form behavior
+            // Show the modal instead of directly submitting
+            setModalAction(editingRecord ? "save" : "add");
+            setIsModalOpen(true);
+          }}
           className="space-y-4"
         >
           <div>
@@ -359,8 +489,8 @@ const Application = () => {
               <option value="" disabled>
                 Select Institute
               </option>
-              {institutes.map((institute, index) => (
-                <option key={index} value={institute.name}>
+              {institutes.map((institute) => (
+                <option key={institute.id} value={institute.id}>
                   {institute.name}
                 </option>
               ))}
@@ -378,14 +508,14 @@ const Application = () => {
                 !formData.institute ? "bg-gray-100 cursor-not-allowed" : ""
               }`}
               required
-              disabled={!formData.institute} // Disable if no institute selected
+              disabled={!formData.institute}
             >
               <option value="" disabled>
                 Select Course
               </option>
-              {courses.map((course, index) => (
-                <option key={index} value={course}>
-                  {course}
+              {courses.map((course) => (
+                <option key={course.id} value={course.name}>
+                  {course.name}
                 </option>
               ))}
             </select>
@@ -486,8 +616,12 @@ const Application = () => {
             </select>
           </div>
           <button
-            type="submit"
+            type="button" // Change to "button" to prevent form submission
             className="w-full bg-lime-800 text-white p-2 rounded hover:bg-lime-900"
+            onClick={() => {
+              setModalAction(editingRecord ? "save" : "add");
+              setIsModalOpen(true); // Open the modal
+            }}
           >
             {editingRecord ? "Save Changes" : "Add Application"}
           </button>
@@ -541,6 +675,28 @@ const Application = () => {
           </div>
         </div>
       )}
+      <Modal
+        isOpen={isModalOpen}
+        message={
+          modalAction === "delete"
+            ? "Are you sure you want to delete this application?"
+            : modalAction === "save"
+            ? "Are you sure you want to save changes?"
+            : "Are you sure you want to add this application?"
+        }
+        onClose={() => setIsModalOpen(false)} // Close modal without action
+        onConfirm={() => {
+          if (modalAction === "delete") handleRemoveApplication();
+          if (modalAction === "save") {
+            setIsModalOpen(false); // Close modal first
+            handleSaveChanges(); // Then save changes
+          }
+          if (modalAction === "add") {
+            setIsModalOpen(false); // Close modal first
+            handleAddApplication(); // Then add the application
+          }
+        }}
+      />
     </main>
   );
 };
