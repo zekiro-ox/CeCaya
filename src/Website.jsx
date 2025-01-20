@@ -34,19 +34,15 @@ const Website = () => {
   const [institutesData, setInstitutesData] = useState([]);
   const [professors, setProfessors] = useState([]);
   const [courses, setCourses] = useState([]);
-
   const websitesRef = collection(db, "website");
-  const institutesRef = collection(db, "institutes");
 
   // Fetch websites from Firestore
   useEffect(() => {
     const fetchData = async () => {
-      const [websitesSnapshot, institutesSnapshot, professorsSnapshot] =
-        await Promise.all([
-          getDocs(websitesRef),
-          getDocs(institutesRef),
-          getDocs(collection(db, "professor")),
-        ]);
+      const [websitesSnapshot, professorsSnapshot] = await Promise.all([
+        getDocs(websitesRef),
+        getDocs(collection(db, "professor")),
+      ]);
 
       // Map websites data
       const websitesData = websitesSnapshot.docs.map((doc) => ({
@@ -55,13 +51,6 @@ const Website = () => {
       }));
       setWebsites(websitesData);
 
-      // Map institutes data
-      const institutesData = institutesSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        name: doc.data().name,
-        courses: doc.data().courses,
-      }));
-      setInstitutesData(institutesData);
       // Map professors data
       const professorsData = professorsSnapshot.docs.map((doc) => ({
         id: doc.id,
@@ -74,15 +63,53 @@ const Website = () => {
     fetchData();
   }, []);
 
-  const handleInstituteChange = (e) => {
-    const selectedInstitute = e.target.value;
-    setFormData({ ...formData, institute: selectedInstitute, course: "" });
+  useEffect(() => {
+    const fetchInstitutes = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, "institutes"));
+        const fetchedInstitutes = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setInstitutesData(fetchedInstitutes);
+      } catch (error) {
+        console.error("Error fetching institutes:", error);
+      }
+    };
 
-    // Find the courses for the selected institute
-    const selectedInstituteData = institutesData.find(
-      (institute) => institute.name === selectedInstitute
-    );
-    setCourses(selectedInstituteData?.courses || []);
+    fetchInstitutes();
+  }, []);
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      if (!formData.institute) return;
+
+      try {
+        const snapshot = await getDocs(collection(db, "courses"));
+        const filteredCourses = snapshot.docs
+          .map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }))
+          .filter((course) => course.foreignKey === formData.institute);
+
+        setCourses(filteredCourses);
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+      }
+    };
+
+    fetchCourses();
+  }, [formData.institute]);
+
+  // Updated handleInstituteChange to use ID
+  const handleInstituteChange = (e) => {
+    const selectedInstituteId = e.target.value;
+    setFormData((prevFormData) => ({
+      ...prevFormData,
+      institute: selectedInstituteId,
+      course: "", // Reset course when the institute changes
+    }));
   };
 
   // Add new website to Firestore
@@ -372,7 +399,7 @@ const Website = () => {
                 Select Institute
               </option>
               {institutesData.map((institute) => (
-                <option key={institute.id} value={institute.name}>
+                <option key={institute.id} value={institute.id}>
                   {institute.name}
                 </option>
               ))}
@@ -386,20 +413,23 @@ const Website = () => {
               name="course"
               value={formData.course}
               onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
+              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2 ${
+                !formData.institute ? "bg-gray-100 cursor-not-allowed" : ""
+              }`}
               required
-              disabled={!courses.length}
+              disabled={!formData.institute}
             >
               <option value="" disabled>
                 Select Course
               </option>
-              {courses.map((course, index) => (
-                <option key={index} value={course}>
-                  {course}
+              {courses.map((course) => (
+                <option key={course.id} value={course.name}>
+                  {course.name}
                 </option>
               ))}
             </select>
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Website Name
@@ -486,7 +516,7 @@ const Website = () => {
               required
             >
               <option value="" disabled>
-                Select Uploader
+                Select professor
               </option>
               {professors.map((professor) => (
                 <option

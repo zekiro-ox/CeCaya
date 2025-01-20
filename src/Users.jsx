@@ -28,7 +28,6 @@ const User = () => {
     email: "",
     password: "",
     confirmPassword: "",
-    status: "",
     institute: "",
     course: "",
     userType: "",
@@ -44,15 +43,13 @@ const User = () => {
   const totalRecords = users.length;
 
   const [institutes, setInstitutes] = useState([]); // To store institute data
-  const [filteredCourses, setFilteredCourses] = useState([]);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const userTypes = ["Student", "Professor"];
-  const statusOptions = ["Approved", "Not Approved"];
-  const institutesCollectionRef = collection(db, "institutes");
   const studentCollectionRef = collection(db, "student");
   const professorCollectionRef = collection(db, "professor");
   const countersCollectionRef = collection(db, "counters");
+  const [courses, setCourses] = useState([]);
 
   // Fetch users from Firestore on component mount
   useEffect(() => {
@@ -86,7 +83,7 @@ const User = () => {
   useEffect(() => {
     const fetchInstitutes = async () => {
       try {
-        const snapshot = await getDocs(institutesCollectionRef);
+        const snapshot = await getDocs(collection(db, "institutes"));
         const fetchedInstitutes = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
@@ -100,16 +97,36 @@ const User = () => {
     fetchInstitutes();
   }, []);
 
-  // Handle institute selection
-  const handleInstituteChange = (e) => {
-    const selectedInstitute = e.target.value;
-    setFormData({ ...formData, institute: selectedInstitute, course: "" }); // Reset course selection
+  useEffect(() => {
+    const fetchCourses = async () => {
+      if (!formData.institute) return;
 
-    // Find the selected institute and its courses
-    const institute = institutes.find(
-      (inst) => inst.name === selectedInstitute
-    );
-    setFilteredCourses(institute ? institute.courses : []);
+      try {
+        const snapshot = await getDocs(collection(db, "courses"));
+        const filteredCourses = snapshot.docs
+          .map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }))
+          .filter((course) => course.foreignKey === formData.institute);
+
+        setCourses(filteredCourses);
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+      }
+    };
+
+    fetchCourses();
+  }, [formData.institute]);
+
+  // Updated handleInstituteChange to use ID
+  const handleInstituteChange = (e) => {
+    const selectedInstituteId = e.target.value;
+    setFormData((prevFormData) => ({
+      ...prevFormData,
+      institute: selectedInstituteId,
+      course: "", // Reset course when the institute changes
+    }));
   };
 
   // Handle input changes
@@ -172,7 +189,6 @@ const User = () => {
         institute: formData.institute,
         course: formData.course,
         userType: formData.userType,
-        status: formData.status,
       });
 
       // Update local state for UI purposes
@@ -186,7 +202,7 @@ const User = () => {
         email: "",
         password: "",
         confirmPassword: "",
-        status: "",
+
         institute: "",
         course: "",
         userType: "",
@@ -243,14 +259,14 @@ const User = () => {
       email: user.email || "", // Email is not editable
       password: "", // Password is not editable here
       confirmPassword: "",
-      status: user.status || "",
+
       institute: user.institute || "",
       course: user.course || "",
       userType: user.userType || "",
     });
 
     // Prepopulate courses based on the institute
-    setFilteredCourses(selectedInstitute ? selectedInstitute.courses : []);
+    setCourses(selectedInstitute ? selectedInstitute.courses : []);
   };
 
   // Handle saving changes after editing
@@ -262,7 +278,6 @@ const User = () => {
       !formData.firstName ||
       !formData.lastName ||
       !formData.username ||
-      !formData.status ||
       !formData.institute ||
       !formData.course ||
       !formData.userType
@@ -283,7 +298,6 @@ const User = () => {
         lastName: formData.lastName,
         username: formData.username,
         // Email is not editable in this form
-        status: formData.status,
         institute: formData.institute,
         course: formData.course,
         userType: formData.userType,
@@ -305,7 +319,7 @@ const User = () => {
         email: "",
         password: "",
         confirmPassword: "",
-        status: "",
+
         institute: "",
         course: "",
         userType: "",
@@ -458,9 +472,6 @@ const User = () => {
                 Email
               </th>
               <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
-                Status
-              </th>
-              <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
                 Action
               </th>
             </tr>
@@ -474,9 +485,6 @@ const User = () => {
                 </td>
                 <td className="border border-gray-200 px-4 py-2">
                   {user.email}
-                </td>
-                <td className="border border-gray-200 px-4 py-2">
-                  {user.status}
                 </td>
                 <td className="border border-gray-200 px-4 py-2 flex space-x-2">
                   <button
@@ -708,16 +716,16 @@ const User = () => {
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
               required
             >
-              <option value="">Select Institute</option>
-              {institutes.map((inst) => (
-                <option key={inst.id} value={inst.name}>
-                  {inst.name}
+              <option value="" disabled>
+                Select Institute
+              </option>
+              {institutes.map((institute) => (
+                <option key={institute.id} value={institute.id}>
+                  {institute.name}
                 </option>
               ))}
             </select>
           </div>
-
-          {/* Course */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Course
@@ -726,41 +734,24 @@ const User = () => {
               name="course"
               value={formData.course}
               onChange={handleInputChange}
-              disabled={!filteredCourses.length}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
-              required // Disable if no courses are available
+              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2 ${
+                !formData.institute ? "bg-gray-100 cursor-not-allowed" : ""
+              }`}
+              required
+              disabled={!formData.institute}
             >
-              <option value="">Select Course</option>
-              {filteredCourses.map((course, index) => (
-                <option key={index} value={course}>
-                  {course}
+              <option value="" disabled>
+                Select Course
+              </option>
+              {courses.map((course) => (
+                <option key={course.id} value={course.name}>
+                  {course.name}
                 </option>
               ))}
             </select>
           </div>
 
           {/* Status */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Status
-            </label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
-              required
-            >
-              <option value="" disabled>
-                Select Status
-              </option>
-              {statusOptions.map((status, index) => (
-                <option key={index} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </div>
 
           {/* Submit Button */}
           <button
@@ -791,9 +782,7 @@ const User = () => {
             <p>
               <strong>Email:</strong> {viewUser.email}
             </p>
-            <p>
-              <strong>Status:</strong> {viewUser.status}
-            </p>
+
             <p>
               <strong>Institute:</strong> {viewUser.institute}
             </p>

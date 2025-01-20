@@ -503,7 +503,7 @@ const Module = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Module Uploader
+              Uploader
             </label>
             <select
               name="uploader"

@@ -585,7 +585,7 @@ const Application = () => {
               required
             >
               <option value="" disabled>
-                Select Uploader
+                Select professor
               </option>
               {professors.map((professor) => (
                 <option
