@@ -6,9 +6,12 @@ import {
   doc,
   deleteDoc,
   updateDoc,
+  query,
+  where,
 } from "firebase/firestore";
 import { db } from "./config/firebase";
 import { FaEdit, FaTrashAlt, FaEye } from "react-icons/fa";
+import { IoArchiveSharp } from "react-icons/io5";
 import axios from "axios";
 import { ToastContainer, toast } from "react-toastify"; // Import Toastify
 import "react-toastify/dist/ReactToastify.css";
@@ -57,7 +60,6 @@ const Module = () => {
   const totalRecords = modules.length;
   const indexOfLastRecord = currentPage * recordsPerPage;
   const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
-  const currentModules = modules.slice(indexOfFirstRecord, indexOfLastRecord);
   const [subjectCodes, setSubjectCodes] = useState([]);
   const [users, setUsers] = useState([""]);
   const [fileSizeError, setFileSizeError] = useState("");
@@ -91,12 +93,24 @@ const Module = () => {
   }, []);
 
   const fetchModules = async () => {
-    const querySnapshot = await getDocs(collection(db, "module"));
-    const moduleData = [];
-    querySnapshot.forEach((doc) => {
-      moduleData.push({ id: doc.id, ...doc.data() });
-    });
-    setModules(moduleData);
+    try {
+      // Create a Firestore query for documents where 'archive' is not true
+      const modulesQuery = query(
+        collection(db, "module"),
+        where("archive", "==", false) // Fetch documents where 'archive' is false
+      );
+
+      const querySnapshot = await getDocs(modulesQuery);
+
+      const moduleData = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      setModules(moduleData);
+    } catch (error) {
+      console.error("Error fetching modules:", error);
+    }
   };
 
   const uploadToCloudinary = async (file) => {
@@ -126,6 +140,7 @@ const Module = () => {
         uploader: formData.uploader,
         description: formData.description, // Save description
         dateUploaded: new Date().toISOString().split("T")[0],
+        archive: false,
       });
 
       setModules([
@@ -275,6 +290,28 @@ const Module = () => {
     }
   };
 
+  const handleArchiveModule = async (module) => {
+    try {
+      const moduleRef = doc(db, "module", module.id);
+
+      // Update the archive field to true
+      await updateDoc(moduleRef, { archive: true });
+
+      // Update the state to reflect the change
+      setModules(
+        modules.map((mod) =>
+          mod.id === module.id ? { ...mod, archive: true } : mod
+        )
+      );
+      fetchModules();
+
+      showToast("Module archived successfully!", "success");
+    } catch (error) {
+      console.error("Error archiving module:", error);
+      showToast("Error archiving module.", "error");
+    }
+  };
+
   const handleNextPage = () => {
     if (currentPage * recordsPerPage < totalRecords) {
       setCurrentPage((prevPage) => prevPage + 1);
@@ -295,6 +332,8 @@ const Module = () => {
     setViewModule(module);
     setShowModal(true);
   };
+
+  const currentModules = modules.slice(indexOfFirstRecord, indexOfLastRecord);
 
   return (
     <main className="flex flex-col lg:flex-row p-4 sm:p-6 lg:p-10 gap-6">
@@ -364,6 +403,12 @@ const Module = () => {
                     onClick={() => handleDeleteConfirmation(module)}
                   >
                     <FaTrashAlt />
+                  </button>
+                  <button
+                    className="text-white bg-gray-800 p-2 rounded hover:bg-gray-900 flex items-center"
+                    onClick={() => handleArchiveModule(module)}
+                  >
+                    <IoArchiveSharp />
                   </button>
                 </td>
               </tr>

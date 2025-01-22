@@ -4,6 +4,7 @@ import {
   FaChevronDown,
   FaChevronUp,
   FaUserShield,
+  FaArchive,
 } from "react-icons/fa";
 import { RiDashboardHorizontalFill } from "react-icons/ri";
 import { GrResources } from "react-icons/gr";
@@ -101,24 +102,24 @@ const Sidebar = ({ isHidden }) => {
                   </li>
                   <li>
                     <Link
-                      to="/application"
-                      className={`flex items-center px-4 py-2 rounded hover:bg-lime-600 ${
-                        isActive("/application") ? "bg-lime-700" : ""
-                      }`}
-                    >
-                      <MdOutlineSettingsApplications className="mr-3" />
-                      Application
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
                       to="/website"
                       className={`flex items-center px-4 py-2 rounded hover:bg-lime-600 ${
                         isActive("/website") ? "bg-lime-700" : ""
                       }`}
                     >
                       <MdOutlineLink className="mr-3" />
-                      Website
+                      Links
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/archive"
+                      className={`flex items-center px-4 py-2 rounded hover:bg-lime-600 ${
+                        isActive("/archive") ? "bg-lime-700" : ""
+                      }`}
+                    >
+                      <FaArchive className="mr-3" />
+                      Archive
                     </Link>
                   </li>
                 </ul>

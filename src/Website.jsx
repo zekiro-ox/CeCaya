@@ -10,6 +10,34 @@ import {
   doc,
 } from "firebase/firestore";
 import axios from "axios";
+import { ToastContainer, toast } from "react-toastify"; // Import Toastify
+import "react-toastify/dist/ReactToastify.css";
+
+const Modal = ({ isOpen, message, onClose, onConfirm }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gray-500 bg-opacity-50 flex justify-center items-center">
+      <div className="bg-white p-6 rounded shadow-md w-1/3">
+        <h2 className="text-xl font-semibold text-gray-800">{message}</h2>
+        <div className="mt-4 flex justify-between space-x-4">
+          <button
+            onClick={onClose}
+            className="bg-gray-300 text-gray-700 px-4 py-2 rounded"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="bg-red-800 text-white px-4 py-2 rounded"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const Website = () => {
   const [websites, setWebsites] = useState([]);
@@ -35,6 +63,9 @@ const Website = () => {
   const [professors, setProfessors] = useState([]);
   const [courses, setCourses] = useState([]);
   const websitesRef = collection(db, "website");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalAction, setModalAction] = useState("");
+  const [moduleToDelete, setModuleToDelete] = useState(null);
 
   // Fetch websites from Firestore
   useEffect(() => {
@@ -112,6 +143,20 @@ const Website = () => {
     }));
   };
 
+  const showToast = (message, type) => {
+    if (type === "success") {
+      toast.success(message, {
+        position: "top-right",
+        autoClose: 3000,
+      });
+    } else if (type === "error") {
+      toast.error(message, {
+        position: "top-right",
+        autoClose: 3000,
+      });
+    }
+  };
+
   // Add new website to Firestore
   const handleAddWebsite = async (e) => {
     e.preventDefault();
@@ -131,37 +176,62 @@ const Website = () => {
   };
 
   // Update website in Firestore
-  const handleSaveChanges = async (e) => {
-    e.preventDefault();
-    const websiteDoc = doc(db, "website", editingRecord);
-    await updateDoc(websiteDoc, formData);
-
-    setWebsites(
-      websites.map((website) =>
-        website.id === editingRecord
-          ? { id: editingRecord, ...formData }
-          : website
-      )
-    );
-    setEditingRecord(null);
-    setFormData({
-      logo: null,
-      websiteName: "",
-      websiteLink: "",
-      status: "",
-      institute: "",
-      course: "",
-      description: "",
-      uploader: "", // Reset description
-    });
+  // Delete Confirmation Handler
+  const handleDeleteConfirmation = (website) => {
+    setModuleToDelete(website); // Set website to delete
+    setModalAction("delete"); // Specify the action
+    setIsModalOpen(true); // Open modal
   };
 
-  // Delete website from Firestore
-  const handleRemoveWebsite = async (id) => {
-    const websiteDoc = doc(db, "website", id);
-    await deleteDoc(websiteDoc);
+  // Save Changes Confirmation Handler
+  const handleSaveChanges = (e) => {
+    e.preventDefault();
+    setModalAction("save"); // Specify the action
+    setIsModalOpen(true); // Open modal
+  };
 
-    setWebsites(websites.filter((website) => website.id !== id));
+  // Confirm Delete Website
+  const handleRemoveWebsiteConfirmation = async () => {
+    try {
+      const websiteDoc = doc(db, "website", moduleToDelete.id);
+      await deleteDoc(websiteDoc);
+
+      setWebsites(
+        websites.filter((website) => website.id !== moduleToDelete.id)
+      );
+      setIsModalOpen(false); // Close modal
+      showToast("Website deleted successfully!", "success");
+    } catch (error) {
+      console.error("Error deleting website:", error);
+      showToast("Error deleting website.", "error");
+    }
+  };
+
+  // Confirm Save Changes
+  const handleSaveChangesConfirmation = async () => {
+    try {
+      const websiteDoc = doc(db, "website", editingRecord);
+      await updateDoc(websiteDoc, formData);
+
+      setWebsites(
+        websites.map((website) =>
+          website.id === editingRecord
+            ? { id: editingRecord, ...formData }
+            : website
+        )
+      );
+      setEditingRecord(null);
+      setIsModalOpen(false); // Close modal
+      showToast("Changes saved successfully!", "success");
+    } catch (error) {
+      console.error("Error saving changes:", error);
+      showToast("Error saving changes.", "error");
+    }
+  };
+
+  // Close Modal
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
   };
 
   // View website details
@@ -250,11 +320,11 @@ const Website = () => {
 
   return (
     <main className="flex flex-col lg:flex-row p-4 sm:p-6 lg:p-10 gap-6">
-      {/* Table Section */}
+      <ToastContainer />
       <section className="flex-1 bg-white rounded-lg shadow-md p-2 sm:p-4 overflow-x-auto">
         <header className="flex justify-between items-center mb-6">
           <h1 className="text-xl lg:text-2xl font-bold text-gray-800">
-            Website Management
+            Link Management
           </h1>
         </header>
         <table className="w-full border-collapse border border-gray-200">
@@ -264,13 +334,13 @@ const Website = () => {
                 ID
               </th>
               <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
-                Website Logo
+                Logo
               </th>
               <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
-                Website Name
+                Name
               </th>
               <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
-                Website Link
+                Link
               </th>
               <th className="border border-gray-200 px-4 py-2 text-left text-gray-700">
                 Status
@@ -323,7 +393,7 @@ const Website = () => {
                     <FaEdit />
                   </button>
                   <button
-                    onClick={() => handleRemoveWebsite(website.id)}
+                    onClick={() => handleDeleteConfirmation(website)}
                     className="bg-red-800 text-white p-2 rounded hover:bg-red-900 flex items-center"
                   >
                     <FaTrashAlt />
@@ -432,21 +502,21 @@ const Website = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Website Name
+              Name
             </label>
             <input
               type="text"
               name="websiteName"
               value={formData.websiteName}
               onChange={handleInputChange}
-              placeholder="Enter website name"
+              placeholder="Enter name"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
               required
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Website Logo
+              Logo
             </label>
 
             {/* Show the current logo if editing and a logo exists */}
@@ -478,14 +548,14 @@ const Website = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Website Link
+              Link
             </label>
             <input
               type="url"
               name="websiteLink"
               value={formData.websiteLink}
               onChange={handleInputChange}
-              placeholder="Enter website link"
+              placeholder="Enter link"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
               required
             />
@@ -498,7 +568,7 @@ const Website = () => {
               name="description"
               value={formData.description}
               onChange={handleInputChange}
-              placeholder="Enter a description for the website"
+              placeholder="Enter a description"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-lime-800 focus:ring-lime-800 sm:text-sm p-2"
               rows={4}
               required
@@ -550,7 +620,7 @@ const Website = () => {
             type="submit"
             className="w-full bg-lime-800 text-white p-2 rounded hover:bg-lime-900"
           >
-            {editingRecord ? "Save Changes" : "Add Website"}
+            {editingRecord ? "Save Changes" : "Add Link"}
           </button>
         </form>
       </section>
@@ -560,13 +630,13 @@ const Website = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-3/4 sm:w-1/2">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              Website Details
+              Details
             </h2>
             <p>
               <strong>ID:</strong> {viewWebsite.id}
             </p>
             <p>
-              <strong>Website Logo:</strong>{" "}
+              <strong>Logo:</strong>{" "}
               <img
                 src={viewWebsite.logo}
                 alt="logo"
@@ -574,10 +644,10 @@ const Website = () => {
               />
             </p>
             <p>
-              <strong>Website Name:</strong> {viewWebsite.websiteName}
+              <strong>Name:</strong> {viewWebsite.websiteName}
             </p>
             <p>
-              <strong>Website Link:</strong>{" "}
+              <strong>Link:</strong>{" "}
               <a
                 href={viewWebsite.websiteLink}
                 target="_blank"
@@ -611,6 +681,20 @@ const Website = () => {
           </div>
         </div>
       )}
+      <Modal
+        isOpen={isModalOpen}
+        message={
+          modalAction === "delete"
+            ? "Are you sure you want to delete this website?"
+            : "Are you sure you want to save changes?"
+        }
+        onClose={handleCloseModal}
+        onConfirm={
+          modalAction === "delete"
+            ? handleRemoveWebsiteConfirmation
+            : handleSaveChangesConfirmation
+        }
+      />
     </main>
   );
 };

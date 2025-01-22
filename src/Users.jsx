@@ -17,6 +17,8 @@ import {
   setDoc,
   runTransaction,
 } from "firebase/firestore";
+import { ToastContainer, toast } from "react-toastify"; // Import Toastify
+import "react-toastify/dist/ReactToastify.css";
 
 const User = () => {
   const [users, setUsers] = useState([]);
@@ -36,12 +38,11 @@ const User = () => {
   const [viewUser, setViewUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState("All"); // Added filter state
-
+  const [searchQuery, setSearchQuery] = useState("");
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage, setRecordsPerPage] = useState(5);
   const totalRecords = users.length;
-
   const [institutes, setInstitutes] = useState([]); // To store institute data
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -119,6 +120,20 @@ const User = () => {
     fetchCourses();
   }, [formData.institute]);
 
+  const showToast = (message, type) => {
+    if (type === "success") {
+      toast.success(message, {
+        position: "top-right",
+        autoClose: 3000,
+      });
+    } else if (type === "error") {
+      toast.error(message, {
+        position: "top-right",
+        autoClose: 3000,
+      });
+    }
+  };
+
   // Updated handleInstituteChange to use ID
   const handleInstituteChange = (e) => {
     const selectedInstituteId = e.target.value;
@@ -147,7 +162,6 @@ const User = () => {
       !formData.email ||
       !formData.password ||
       !formData.confirmPassword ||
-      !formData.status ||
       !formData.institute ||
       !formData.course ||
       !formData.userType
@@ -202,15 +216,14 @@ const User = () => {
         email: "",
         password: "",
         confirmPassword: "",
-
         institute: "",
         course: "",
         userType: "",
       });
-      alert("User added successfully!");
+      showToast("User added successfully!", "success");
     } catch (error) {
       console.error("Error adding user:", error.message);
-      alert(`Error adding user: ${error.message}`);
+      showToast("Error adding user.", "error");
     }
   };
   // Function to generate formatted ID
@@ -259,7 +272,6 @@ const User = () => {
       email: user.email || "", // Email is not editable
       password: "", // Password is not editable here
       confirmPassword: "",
-
       institute: user.institute || "",
       course: user.course || "",
       userType: user.userType || "",
@@ -324,10 +336,10 @@ const User = () => {
         course: "",
         userType: "",
       });
-      alert("User updated successfully!");
+      showToast("User updated successfully!", "success");
     } catch (error) {
       console.error("Error updating user:", error.message);
-      alert(`Error updating user: ${error.message}`);
+      showToast("Error updating user.", "error");
     }
   };
 
@@ -336,7 +348,7 @@ const User = () => {
 
     // Prevent student from deleting their own account
     if (currentUser && currentUser.uid === user.uid) {
-      alert("You cannot delete your own account.");
+      showToast("You cannot delete your own account!", "error");
       return; // Exit the function if the user is trying to delete their own account
     }
 
@@ -361,10 +373,10 @@ const User = () => {
         // Update local state
         setUsers(users.filter((u) => u.id !== user.id));
 
-        alert("User deleted successfully!");
+        showToast("User deleted successfully!", "success");
       } catch (error) {
         console.error("Error deleting user:", error.message);
-        alert(`Error deleting user: ${error.message}`);
+        showToast("Error deleting the user.", "error");
       }
     }
   };
@@ -372,10 +384,10 @@ const User = () => {
   const handleResetPassword = async (userEmail) => {
     try {
       await sendPasswordResetEmail(auth, userEmail);
-      alert(`Password reset email sent to ${userEmail}`);
+      showToast("Successfully sent a password reset email", "success");
     } catch (error) {
       console.error("Error sending password reset email:", error.message);
-      alert("Failed to send password reset email. Please try again.");
+      showToast("Failed to send password reset email", "success");
     }
   };
 
@@ -413,8 +425,13 @@ const User = () => {
 
   // Filter users based on the selected filter
   const filteredUsers = users.filter((user) => {
-    if (filter === "All") return true;
-    return user.userType === filter;
+    if (filter !== "All" && user.userType !== filter) return false;
+    const query = searchQuery.toLowerCase();
+    return (
+      user.firstName.toLowerCase().includes(query) ||
+      user.lastName.toLowerCase().includes(query) ||
+      user.email.toLowerCase().includes(query)
+    );
   });
 
   const currentUsers = filteredUsers.slice(
@@ -422,15 +439,26 @@ const User = () => {
     currentPage * recordsPerPage
   );
 
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+  };
+
   return (
     <main className="flex flex-col lg:flex-row p-4 sm:p-6 lg:p-10 gap-6">
-      {/* Table Section */}
+      <ToastContainer />
       <section className="flex-1 bg-white rounded-lg shadow-md p-2 sm:p-4 overflow-x-auto">
         <header className="flex justify-between items-center mb-6">
           <h1 className="text-xl lg:text-2xl font-bold text-gray-800">
             User Management
           </h1>
           <div className="flex gap-4">
+            <input
+              type="text"
+              placeholder="Search by name or email..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              className="p-2 border rounded-md"
+            />
             <button
               className={`px-4 py-2 rounded ${
                 filter === "Student" ? "bg-lime-800 text-white" : "bg-gray-200"
