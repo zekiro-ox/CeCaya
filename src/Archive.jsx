@@ -1,7 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  doc,
+  updateDoc,
+} from "firebase/firestore";
 import { db } from "./config/firebase";
 import { FaEye } from "react-icons/fa";
+import { LuArchiveRestore } from "react-icons/lu";
+import { ToastContainer, toast } from "react-toastify"; // Import Toastify
+import "react-toastify/dist/ReactToastify.css";
 
 const Archive = () => {
   const [archivedModules, setArchivedModules] = useState([]);
@@ -11,6 +21,20 @@ const Archive = () => {
   useEffect(() => {
     fetchArchivedModules();
   }, []);
+
+  const showToast = (message, type) => {
+    if (type === "success") {
+      toast.success(message, {
+        position: "top-right",
+        autoClose: 3000,
+      });
+    } else if (type === "error") {
+      toast.error(message, {
+        position: "top-right",
+        autoClose: 3000,
+      });
+    }
+  };
 
   const fetchArchivedModules = async () => {
     try {
@@ -36,8 +60,21 @@ const Archive = () => {
     setShowModal(true);
   };
 
+  const handleArchiveModule = async (module) => {
+    try {
+      const moduleRef = doc(db, "module", module.id);
+      await updateDoc(moduleRef, { archive: false });
+      fetchArchivedModules();
+      showToast("Module restore successfully!", "success");
+    } catch (error) {
+      console.error("Error", error);
+      showToast("Error restoring module.", "error");
+    }
+  };
+
   return (
     <main className="p-4 sm:p-6 lg:p-10">
+      <ToastContainer />
       <section className="bg-white rounded-lg shadow-md p-4 sm:p-6">
         <header className="flex justify-between items-center mb-6">
           <h1 className="text-xl lg:text-2xl font-bold text-gray-800">
@@ -85,12 +122,18 @@ const Archive = () => {
                     {module.moduleFile?.name || "No file uploaded"}
                   </a>
                 </td>
-                <td className="border border-gray-200 px-4 py-2">
+                <td className="border border-gray-200 px-4 py-2 flex space-x-2">
                   <button
                     className="text-white bg-yellow-800 p-2 rounded hover:bg-yellow-900 flex items-center"
                     onClick={() => handleViewModule(module)}
                   >
                     <FaEye />
+                  </button>
+                  <button
+                    className="text-white bg-gray-800  p-2 rounded hover:bg-gray-900 flex items-center"
+                    onClick={() => handleArchiveModule(module)}
+                  >
+                    <LuArchiveRestore />
                   </button>
                 </td>
               </tr>
