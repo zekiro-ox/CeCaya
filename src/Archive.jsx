@@ -9,7 +9,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./config/firebase";
 import { FaEye } from "react-icons/fa";
-import { LuArchiveRestore } from "react-icons/lu";
+import { BiSolidArchiveOut } from "react-icons/bi";
 import { ToastContainer, toast } from "react-toastify"; // Import Toastify
 import "react-toastify/dist/ReactToastify.css";
 
@@ -133,7 +133,7 @@ const Archive = () => {
                     className="text-white bg-gray-800  p-2 rounded hover:bg-gray-900 flex items-center"
                     onClick={() => handleArchiveModule(module)}
                   >
-                    <LuArchiveRestore />
+                    <BiSolidArchiveOut />
                   </button>
                 </td>
               </tr>

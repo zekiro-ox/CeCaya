@@ -11,7 +11,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./config/firebase";
 import { FaEdit, FaTrashAlt, FaEye } from "react-icons/fa";
-import { IoArchiveSharp } from "react-icons/io5";
+import { BiSolidArchiveIn } from "react-icons/bi";
 import axios from "axios";
 import { ToastContainer, toast } from "react-toastify"; // Import Toastify
 import "react-toastify/dist/ReactToastify.css";
@@ -408,7 +408,7 @@ const Module = () => {
                     className="text-white bg-gray-800 p-2 rounded hover:bg-gray-900 flex items-center"
                     onClick={() => handleArchiveModule(module)}
                   >
-                    <IoArchiveSharp />
+                    <BiSolidArchiveIn />
                   </button>
                 </td>
               </tr>
