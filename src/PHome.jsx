@@ -12,6 +12,7 @@ const Home = () => {
         { id: 1, text: "Great post!", replies: [] },
         { id: 2, text: "Very informative!", replies: [] },
       ],
+      timestamp: "January 28, 2025",
     },
     {
       id: 2,
@@ -22,14 +23,27 @@ const Home = () => {
         { id: 1, text: "Nice one!", replies: [] },
         { id: 2, text: "I learned something new.", replies: [] },
       ],
+      timestamp: "January 29, 2025",
     },
   ]);
+
+  const [announcements, setAnnouncements] = useState("No announcements yet.");
+  const [editAnnouncement, setEditAnnouncement] = useState(false);
+  const [announcementText, setAnnouncementText] = useState(announcements);
+
+  const handleEditAnnouncement = () => {
+    setEditAnnouncement(true);
+  };
+
+  const handleSaveAnnouncement = () => {
+    setAnnouncements(announcementText);
+    setEditAnnouncement(false);
+  };
 
   const [expandedPost, setExpandedPost] = useState(null);
   const [replyText, setReplyText] = useState("");
   const [replyBoxVisibility, setReplyBoxVisibility] = useState({});
-  const [upvotedPosts, setUpvotedPosts] = useState(new Set()); // Track upvoted posts
-  const [searchText, setSearchText] = useState(""); // State for search query
+  const [upvotedPosts, setUpvotedPosts] = useState(new Set());
 
   const handleLike = (postId) => {
     setPosts((prevPosts) =>
@@ -37,18 +51,15 @@ const Home = () => {
         post.id === postId
           ? {
               ...post,
-              likes: upvotedPosts.has(postId)
-                ? post.likes - 1 // If already upvoted, decrease the likes
-                : post.likes + 1, // Otherwise, increase the likes
+              likes: upvotedPosts.has(postId) ? post.likes - 1 : post.likes + 1,
             }
           : post
       )
     );
-    setUpvotedPosts(
-      (prev) =>
-        upvotedPosts.has(postId)
-          ? new Set([...prev].filter((id) => id !== postId)) // Remove from upvoted set if already upvoted
-          : new Set([...prev, postId]) // Add to upvoted set if not already upvoted
+    setUpvotedPosts((prev) =>
+      upvotedPosts.has(postId)
+        ? new Set([...prev].filter((id) => id !== postId))
+        : new Set([...prev, postId])
     );
   };
 
@@ -78,115 +89,121 @@ const Home = () => {
           : post
       )
     );
-    setReplyText(""); // Clear reply text after adding
+    setReplyText("");
     setReplyBoxVisibility((prevState) => ({
       ...prevState,
-      [`${postId}-${commentId}`]: false, // Hide reply box after sending
+      [`${postId}-${commentId}`]: false,
     }));
   };
 
   const toggleReplyBox = (postId, commentId) => {
     setReplyBoxVisibility((prevState) => ({
       ...prevState,
-      [`${postId}-${commentId}`]: !prevState[`${postId}-${commentId}`], // Toggle reply box visibility
+      [`${postId}-${commentId}`]: !prevState[`${postId}-${commentId}`],
     }));
   };
 
-  // Filter posts based on the search query
-  const filteredPosts = posts.filter(
-    (post) =>
-      post.title.toLowerCase().includes(searchText.toLowerCase()) ||
-      post.content.toLowerCase().includes(searchText.toLowerCase())
-  );
-
   return (
-    <div className="flex-1 max-w-2xl mx-auto p-6">
-      {/* Search Bar */}
-      <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Search posts..."
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          className="border p-2 rounded-lg w-full"
-        />
+    <div className="max-w-5xl mx-auto p-6 flex">
+      <div className="w-3/4">
+        <h2 className="text-2xl font-semibold mb-4">Classroom Stream</h2>
+        {posts.map((post) => (
+          <div key={post.id} className="bg-white p-4 rounded-lg shadow-md mb-4">
+            <div className="text-gray-500 text-sm mb-1">
+              Posted on {post.timestamp}
+            </div>
+            <h3 className="text-lg font-bold">{post.title}</h3>
+            <p className="text-gray-700 mt-2">{post.content}</p>
+            <div className="flex items-center mt-3 space-x-4">
+              <button
+                onClick={() => handleLike(post.id)}
+                className={`flex items-center ${
+                  upvotedPosts.has(post.id)
+                    ? "text-blue-600"
+                    : "text-gray-600 hover:text-blue-600"
+                }`}
+              >
+                <FaArrowUp className="mr-1" /> {post.likes}
+              </button>
+              <button
+                onClick={() => toggleComments(post.id)}
+                className="flex items-center text-gray-600 hover:text-blue-600"
+              >
+                <FaComment className="mr-1" /> {post.comments.length} Comments
+              </button>
+            </div>
+            {expandedPost === post.id && (
+              <div className="mt-4 border-t pt-3">
+                {post.comments.map((comment) => (
+                  <div key={comment.id} className="mb-2">
+                    <p className="text-gray-800">{comment.text}</p>
+                    {comment.replies.length > 0 && (
+                      <div className="ml-4 mt-2">
+                        {comment.replies.map((reply, index) => (
+                          <p key={index} className="text-gray-600">
+                            Reply: {reply}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => toggleReplyBox(post.id, comment.id)}
+                      className="mt-2 text-blue-600 hover:text-blue-800"
+                    >
+                      Reply
+                    </button>
+                    {replyBoxVisibility[`${post.id}-${comment.id}`] && (
+                      <div className="mt-2 flex">
+                        <input
+                          type="text"
+                          value={replyText}
+                          onChange={handleReplyChange}
+                          className="border p-2 rounded-lg flex-1"
+                          placeholder="Type a reply..."
+                        />
+                        <button
+                          onClick={() => addReply(post.id, comment.id)}
+                          className="ml-2 px-4 py-2 bg-blue-600 text-white rounded-lg"
+                        >
+                          Send
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
-
-      {/* Render filtered posts */}
-      {filteredPosts.map((post) => (
-        <div key={post.id} className="bg-white p-4 rounded-lg shadow-xl mb-4">
-          <h3 className="text-lg font-bold">{post.title}</h3>
-          <p className="text-gray-700 mt-2">{post.content}</p>
-          <div className="flex items-center mt-3 space-x-4">
+      <div className="w-1/4 ml-6 p-4 bg-white rounded-lg shadow-xl">
+        <h3 className="text-lg font-bold mb-2">Announcements</h3>
+        {editAnnouncement ? (
+          <div>
+            <textarea
+              className="w-full p-2 border rounded-2xl"
+              value={announcementText}
+              onChange={(e) => setAnnouncementText(e.target.value)}
+            />
             <button
-              onClick={() => handleLike(post.id)}
-              className={`flex items-center ${
-                upvotedPosts.has(post.id)
-                  ? "text-lime-700" // If upvoted, turn the button green
-                  : "text-gray-600 hover:text-lime-700"
-              }`}
+              onClick={handleSaveAnnouncement}
+              className="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg"
             >
-              <FaArrowUp className="mr-1" /> {post.likes}
-            </button>
-            <button
-              onClick={() => toggleComments(post.id)}
-              className="flex items-center text-gray-600 hover:text-lime-700"
-            >
-              <FaComment className="mr-1" /> {post.comments.length} Comments
+              Save
             </button>
           </div>
-
-          {/* Show comments if expandedPost matches this post's id */}
-          {expandedPost === post.id && (
-            <div className="mt-4">
-              {post.comments.map((comment) => (
-                <div key={comment.id} className="mb-4">
-                  <p className="text-gray-800">{comment.text}</p>
-
-                  {/* Show replies */}
-                  {comment.replies.length > 0 && (
-                    <div className="ml-4 mt-2">
-                      {comment.replies.map((reply, index) => (
-                        <p
-                          key={index}
-                          className="text-gray-600"
-                        >{`Reply: ${reply}`}</p>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Reply Button */}
-                  <button
-                    onClick={() => toggleReplyBox(post.id, comment.id)}
-                    className="mt-2 text-lime-600 hover:text-lime-800"
-                  >
-                    Reply
-                  </button>
-
-                  {/* Conditionally display reply form */}
-                  {replyBoxVisibility[`${post.id}-${comment.id}`] && (
-                    <div className="mt-2 flex">
-                      <input
-                        type="text"
-                        value={replyText}
-                        onChange={handleReplyChange}
-                        className="border p-2 rounded-lg flex-1"
-                        placeholder="Type a reply..."
-                      />
-                      <button
-                        onClick={() => addReply(post.id, comment.id)}
-                        className="ml-2 px-4 py-2 bg-lime-600 text-white rounded-lg"
-                      >
-                        Send
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
+        ) : (
+          <div>
+            <p>{announcements}</p>
+            <button
+              onClick={handleEditAnnouncement}
+              className="mt-2 text-blue-600 hover:text-blue-800"
+            >
+              Edit
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

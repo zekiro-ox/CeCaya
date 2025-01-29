@@ -5,12 +5,12 @@ import {
   FaChevronUp,
   FaUserShield,
   FaArchive,
+  FaLink,
 } from "react-icons/fa";
 import { RiDashboardHorizontalFill } from "react-icons/ri";
 import { GrResources } from "react-icons/gr";
 import { VscFileSubmodule } from "react-icons/vsc";
 import { LuNotebookText } from "react-icons/lu";
-import { MdOutlineSettingsApplications, MdOutlineLink } from "react-icons/md";
 import { HiAcademicCap } from "react-icons/hi2";
 import { Link, useLocation } from "react-router-dom";
 import Logo from "./assets/Logooo.png"; // Import the logo
@@ -107,7 +107,7 @@ const Sidebar = ({ isHidden }) => {
                         isActive("/website") ? "bg-lime-700" : ""
                       }`}
                     >
-                      <MdOutlineLink className="mr-3" />
+                      <FaLink className="mr-3" />
                       Links
                     </Link>
                   </li>
