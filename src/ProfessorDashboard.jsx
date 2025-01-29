@@ -1,38 +1,23 @@
-import React from "react";
+import React, { useState } from "react";
+import Header from "./PHeader";
+import Sidebar from "./PSidebar";
+import Content from "./PContent";
 
 const ProfessorDashboard = () => {
+  const [activeMenu, setActiveMenu] = useState("Home");
+
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
-      <div className="w-64 bg-[#4f6932] text-gray-100 p-6">
-        <ul>
-          <li className="py-2 px-4 hover:bg-lime-700 cursor-pointer">Home</li>
-          <li className="py-2 px-4 hover:bg-lime-700 cursor-pointer">Module</li>
-          <li className="py-2 px-4 hover:bg-lime-700 cursor-pointer">
-            Application
-          </li>
-          <li className="py-2 px-4 hover:bg-lime-700 cursor-pointer">
-            Websites
-          </li>
-        </ul>
-      </div>
+      <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} />
 
       {/* Main Content */}
-      <div className="flex-1 p-6 bg-gray-100">
+      <div className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="bg-[#5e7543] text-gray-100 p-4 mb-6 rounded-md shadow">
-          <h1 className="text-2xl font-bold">
-            Welcome to the Professor Dashboard
-          </h1>
-        </header>
+        <Header activeMenu={activeMenu} />
 
-        {/* Content */}
-        <div className="content">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Dashboard Overview
-          </h2>
-          {/* Additional content can go here */}
-        </div>
+        {/* Content Area */}
+        <Content activeMenu={activeMenu} />
       </div>
     </div>
   );
