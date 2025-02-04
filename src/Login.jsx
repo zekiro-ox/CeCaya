@@ -136,7 +136,7 @@ const LoginPage = ({ onLogin }) => {
 
         onLogin("professor");
         setTimeout(() => {
-          navigate("/professor-dashboard");
+          navigate("/professor/home");
         }, 3000);
         return;
       }

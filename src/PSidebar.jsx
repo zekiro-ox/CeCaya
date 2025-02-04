@@ -1,34 +1,107 @@
-import React from "react";
-import { FaHome, FaFolder, FaLink, FaArchive } from "react-icons/fa";
+import React, { useState } from "react";
+import {
+  FaHome,
+  FaChevronDown,
+  FaChevronUp,
+  FaLink,
+  FaArchive,
+} from "react-icons/fa";
 import { LuNotebookText } from "react-icons/lu"; // Import icons
+import { Link, useLocation } from "react-router-dom";
 
-const Sidebar = ({ activeMenu, setActiveMenu }) => {
-  const menuItems = [
-    { name: "Home", icon: <FaHome /> },
-    { name: "Module", icon: <LuNotebookText /> },
-    { name: "Link", icon: <FaLink /> },
-    { name: "Archive", icon: <FaArchive /> },
-  ];
+const PSidebar = ({ isHidden }) => {
+  const [isResourcesOpen, setIsResourcesOpen] = useState(false);
+  const location = useLocation(); // Get the current path
+
+  const toggleResourcesMenu = () => {
+    setIsResourcesOpen(!isResourcesOpen);
+  };
+
+  const isActive = (path) => location.pathname === path; // Helper function to check active state
 
   return (
-    <div className="w-64 bg-[#4f6932] text-gray-100 p-6 h-full flex flex-col">
-      <h2 className="text-lg font-bold mb-4">Hello Professor</h2>
-      <ul className="space-y-2">
-        {menuItems.map(({ name, icon }) => (
-          <li
-            key={name}
-            className={`py-2 px-4 cursor-pointer rounded flex items-center space-x-2 ${
-              activeMenu === name ? "bg-lime-700" : "hover:bg-lime-700"
-            }`}
-            onClick={() => setActiveMenu(name)}
-          >
-            {icon} {/* Display icon */}
-            <span>{name}</span>
+    <aside
+      className={`w-64 text-white flex flex-col h-full transition-transform duration-300 ${
+        isHidden ? "-translate-x-full" : "translate-x-0"
+      }`}
+      style={{ backgroundColor: "#4f6932" }}
+    >
+      <div className="p-6 text-center border-b border-lime-900">
+        <div className="flex justify-center items-center space-x-2">
+          <FaHome className="text-4xl" /> {/* Home icon */}
+          <span className="text-3xl font-bold">Professor</span>
+        </div>
+      </div>
+      <nav className="flex-1 p-4">
+        <ul className="space-y-4">
+          <li>
+            <Link
+              to="/professor/home"
+              className={`flex items-center px-4 py-2 rounded hover:bg-lime-600 ${
+                isActive("/professor/home") ? "bg-lime-700" : ""
+              }`}
+            >
+              <FaHome className="mr-3" />
+              Home
+            </Link>
           </li>
-        ))}
-      </ul>
-    </div>
+          <li>
+            <div>
+              <button
+                onClick={toggleResourcesMenu}
+                className="w-full flex items-center px-4 py-2 rounded hover:bg-lime-600 justify-between"
+              >
+                <div className="flex items-center">
+                  <LuNotebookText className="mr-3" />
+                  Resources
+                </div>
+                <span>
+                  {isResourcesOpen ? <FaChevronUp /> : <FaChevronDown />}
+                </span>
+              </button>
+              {isResourcesOpen && (
+                <ul className="pl-6 mt-2 space-y-2">
+                  <li>
+                    <Link
+                      to="/professor/module"
+                      className={`flex items-center px-4 py-2 rounded hover:bg-lime-600 ${
+                        isActive("/professor/module") ? "bg-lime-700" : ""
+                      }`}
+                    >
+                      <LuNotebookText className="mr-3" />
+                      Module
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/professor/link"
+                      className={`flex items-center px-4 py-2 rounded hover:bg-lime-600 ${
+                        isActive("/professor/link") ? "bg-lime-700" : ""
+                      }`}
+                    >
+                      <FaLink className="mr-3" />
+                      Link
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/professor/archive"
+                      className={`flex items-center px-4 py-2 rounded hover:bg-lime-600 ${
+                        isActive("/professor/archive") ? "bg-lime-700" : ""
+                      }`}
+                    >
+                      <FaArchive className="mr-3" />
+                      Archive
+                    </Link>
+                  </li>
+                </ul>
+              )}
+            </div>
+          </li>
+        </ul>
+      </nav>
+    </aside>
   );
 };
 
-export default Sidebar;
+export default PSidebar;

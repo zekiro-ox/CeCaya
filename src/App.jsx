@@ -18,6 +18,10 @@ import User from "./Users";
 import ProfessorDashboard from "./ProfessorDashboard";
 import StudentDashboard from "./StudentDashboard";
 import Archive from "./Archive";
+import PSidebar from "./PSidebar";
+import ProfessorModule from "./ProfessorModule";
+import ProfessorLink from "./ProfessorLink";
+import ProfessorArchive from "./ProfessorArchive";
 
 function ProtectedLayout({ onLogout }) {
   const [isSidebarHidden, setIsSidebarHidden] = useState(false);
@@ -72,6 +76,55 @@ function ProtectedLayout({ onLogout }) {
   );
 }
 
+function ProfessorProtectedLayout({ onLogout }) {
+  const [isSidebarHidden, setIsSidebarHidden] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  const toggleSidebar = () => {
+    setIsSidebarHidden(!isSidebarHidden);
+  };
+
+  const handleResize = () => {
+    const isNowMobile = window.innerWidth <= 768;
+    setIsMobile(isNowMobile);
+    if (!isNowMobile) {
+      setIsSidebarHidden(false); // Ensure sidebar is visible on larger screens
+    }
+  };
+
+  useEffect(() => {
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  return (
+    <div className="flex h-screen">
+      <div
+        className={`fixed top-0 left-0 h-full bg-white shadow-md z-10 transition-transform duration-500 ease-in-out ${
+          isSidebarHidden && isMobile ? "-translate-x-full" : "translate-x-0"
+        }`}
+      >
+        <PSidebar />
+      </div>
+      <div
+        className={`flex-1 flex flex-col transition-all duration-500 ease-in-out ${
+          isSidebarHidden && isMobile ? "ml-0" : "ml-64"
+        }`}
+      >
+        <Header onLogout={onLogout} toggleSidebar={toggleSidebar} />
+        <Routes>
+          <Route path="home" element={<ProfessorDashboard />} />
+          <Route path="module" element={<ProfessorModule />} />
+          <Route path="link" element={<ProfessorLink />} />
+          <Route path="archive" element={<ProfessorArchive />} />
+        </Routes>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState(null); // Track user role
@@ -106,10 +159,10 @@ function App() {
 
         {/* Professor Protected Layout */}
         <Route
-          path="/professor-dashboard"
+          path="/professor/*"
           element={
             isAuthenticated && userRole === "professor" ? (
-              <ProfessorDashboard />
+              <ProfessorProtectedLayout onLogout={handleLogout} />
             ) : (
               <Navigate to="/" />
             )

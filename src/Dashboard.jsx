@@ -126,23 +126,12 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Total Approved Applications */}
-        <div className="bg-white p-6 rounded-lg shadow-md flex items-center">
-          <MdOutlineSettingsApplications className="h-6 w-6 text-gray-500 mr-4" />
-          <div>
-            <h2 className="text-lg lg:text-xl font-semibold text-gray-700 mb-2">
-              Approved Applications
-            </h2>
-            <p className="text-gray-500">{totalApprovedApplications}</p>
-          </div>
-        </div>
-
         {/* Total Approved Websites */}
         <div className="bg-white p-6 rounded-lg shadow-md flex items-center">
           <MdOutlineLink className="h-6 w-6 text-gray-500 mr-4" />
           <div>
             <h2 className="text-lg lg:text-xl font-semibold text-gray-700 mb-2">
-              Approved Websites
+              Approved Links
             </h2>
             <p className="text-gray-500">{totalApprovedWebsites}</p>
           </div>
