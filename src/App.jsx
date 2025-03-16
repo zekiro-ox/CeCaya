@@ -22,7 +22,9 @@ import PSidebar from "./PSidebar";
 import ProfessorModule from "./ProfessorModule";
 import ProfessorLink from "./ProfessorLink";
 import ProfessorArchive from "./ProfessorArchive";
-import StudentSidebar from "./StudentSidebar"; // Assuming you have a StudentSidebar component
+import StudentSidebar from "./StudentSidebar";
+import StudentModule from "./StudentModule";
+import StudentLink from "./StudentLink";
 
 function ProtectedLayout({ onLogout }) {
   const [isSidebarHidden, setIsSidebarHidden] = useState(false);
@@ -166,7 +168,8 @@ function StudentProtectedLayout({ onLogout }) {
         <Header onLogout={onLogout} toggleSidebar={toggleSidebar} />
         <Routes>
           <Route path="home" element={<StudentDashboard />} />
-          {/* Add more student-specific routes here */}
+          <Route path="module" element={<StudentModule />} />
+          <Route path="link" element={<StudentLink />} />
         </Routes>
       </div>
     </div>
