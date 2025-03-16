@@ -1,40 +1,67 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { db } from "./config/firebase";
+import { VscFileSubmodule } from "react-icons/vsc";
 
 const StudentDashboard = () => {
+  const [studentCourse, setStudentCourse] = useState("");
+  const [studentInstitute, setStudentInstitute] = useState("");
+  const [subjects, setSubjects] = useState([]);
+
+  useEffect(() => {
+    // Fetch student details
+    const fetchStudentDetails = async () => {
+      const studentDoc = await getDocs(collection(db, "student"));
+      const studentData = studentDoc.docs[0].data(); // Assuming the logged-in student is the first document
+      setStudentCourse(studentData.course);
+      setStudentInstitute(studentData.institute);
+    };
+
+    // Fetch subjects based on course and institute
+    const fetchSubjects = async () => {
+      const subjectsQuery = query(
+        collection(db, "subjects"),
+        where("course", "==", studentCourse),
+        where("institute", "==", studentInstitute)
+      );
+      const subjectsSnapshot = await getDocs(subjectsQuery);
+      setSubjects(subjectsSnapshot.docs.map((doc) => doc.data()));
+    };
+
+    fetchStudentDetails().then(() => {
+      fetchSubjects();
+    });
+  }, [studentCourse, studentInstitute]);
+
   return (
-    <div className="flex h-screen">
-      {/* Sidebar */}
-      <div className="w-64 bg-[#4f6932] text-gray-100 p-6">
-        <ul>
-          <li className="py-2 px-4 hover:bg-lime-700 cursor-pointer">Home</li>
-          <li className="py-2 px-4 hover:bg-lime-700 cursor-pointer">Module</li>
-          <li className="py-2 px-4 hover:bg-lime-700 cursor-pointer">
-            Application
-          </li>
-          <li className="py-2 px-4 hover:bg-lime-700 cursor-pointer">
-            Websites
-          </li>
-        </ul>
-      </div>
+    <main
+      className="flex-1 p-4 sm:p-6 lg:p-10"
+      style={{ backgroundColor: "#f7f9f6" }}
+    >
+      <header className="flex flex-wrap justify-between items-center mb-6">
+        <h1 className="text-xl lg:text-2xl font-bold text-gray-800">
+          Subject Available for {studentCourse} at {studentInstitute}
+        </h1>
+      </header>
 
-      {/* Main Content */}
-      <div className="flex-1 p-6 bg-gray-100">
-        {/* Header */}
-        <header className="bg-[#5e7543] text-gray-100 p-4 mb-6 rounded-md shadow">
-          <h1 className="text-2xl font-bold">
-            Welcome to the Student Dashboard
-          </h1>
-        </header>
-
-        {/* Content */}
-        <div className="content">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Dashboard Overview
-          </h2>
-          {/* Additional content can go here */}
-        </div>
-      </div>
-    </div>
+      {/* Subjects Section */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {subjects.map((subject, index) => (
+          <div
+            key={index}
+            className="bg-white p-6 rounded-lg shadow-md flex items-center"
+          >
+            <VscFileSubmodule className="h-6 w-6 text-gray-500 mr-4" />
+            <div>
+              <h2 className="text-lg lg:text-xl font-semibold text-gray-700 mb-2">
+                {subject.name}
+              </h2>
+              <p className="text-gray-500">{subject.description}</p>
+            </div>
+          </div>
+        ))}
+      </section>
+    </main>
   );
 };
 

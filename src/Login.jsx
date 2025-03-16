@@ -155,7 +155,7 @@ const LoginPage = ({ onLogin }) => {
 
         onLogin("student");
         setTimeout(() => {
-          navigate("/student-dashboard");
+          navigate("/student/home");
         }, 3000);
         return;
       }
